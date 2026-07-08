@@ -1,0 +1,130 @@
+{
+  "layers": [
+    {
+      "name": "Parks",
+      "type": "circle",
+      "visible": true,
+      "style": {
+        "opacity": 0.3,
+        "color": "#007f00",
+        "surface": true
+      },
+      "acquisition": {
+        "provider": "overpass",
+        "filters": {
+          "leisure": ["park"]
+        }
+      }
+    },
+    {
+      "name": "Restaurants, Food",
+      "type": "heatmap",
+      "visible": true,
+      "style": {
+        "opacity": 0.5,
+        "radiusScale": 1.5,
+        "color": "#C41C3B"
+      },
+      "acquisition": {
+        "provider": "overpass",
+        "filters": {
+          "amenity": ["bar", "biergarten", "cafe", "fast_food", "food_court", "ice_cream", "pub", "restaurant"]
+        }
+      }
+    },
+    {
+      "name": "Attractions, Tourism",
+      "type": "heatmap",
+      "visible": true,
+      "style": {
+        "opacity": 0.5,
+        "radiusScale": 3.0,
+        "color": "#FBC02D"
+      },
+      "acquisition": {
+        "provider": "overpass",
+        "filters": {
+          "tourism": ["attraction", "museum", "viewpoint", "theme_park", "zoo", "aquarium", "gallery", "artwork"]
+        }
+      }
+    },
+    {
+      "name": "Culture, Entertainment",
+      "type": "heatmap",
+      "visible": true,
+      "style": {
+        "opacity": 0.5,
+        "radiusScale": 3.0,
+        "color": "#6A0DAD"
+      },
+      "acquisition": {
+        "provider": "overpass",
+        "filters": {
+          "amenity": ["arts_centre", "casino", "cinema", "nightclub", "theatre"]
+        }
+      }
+    },
+    {
+      "name": "Shops, Services",
+      "type": "heatmap",
+      "visible": true,
+      "style": {
+        "opacity": 0.7,
+        "radiusScale": 1,
+        "color": "#4C98D6"
+      },
+      "acquisition": {
+        "provider": "overpass",
+        "filters": {
+          "shop": ["*"]
+        }
+      }
+    },
+    {
+      "id": "__poi__",
+      "name": "Points of Interest",
+      "type": "__poi__",
+      "visible": true,
+      "style": {
+        "opacity": 0.9,
+        "color": "#7f0000",
+        "radius": 8,
+        "minZoom": 16
+      }
+    },
+    {
+      "id": "__search__",
+      "name": "Search Results",
+      "type": "__search__",
+      "visible": false,
+      "style": {
+        "opacity": 0.3,
+        "color": "#00007f"
+      }
+    },
+    {
+      "id": "__user__",
+      "name": "My Trip",
+      "type": "__user__",
+      "visible": true,
+      "style": {
+        "opacity": 0.7,
+        "color": "#5f5f5f",
+        "radius": 40,
+        "minZoom": 12
+      }
+    },
+    {
+      "id": "__void__",
+      "name": "Mundane",
+      "type": "__void__",
+      "visible": false,
+      "style": {
+        "opacity": 0.3,
+        "color": "#3f3f3f"
+      }
+    }
+  ],
+  "aggregation": {},
+  "deduping": {}
+}

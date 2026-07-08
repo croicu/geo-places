@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "geo-build: whole catalog",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "geo_builder.cli",
+      "python": "${workspaceFolder}/../geo-builder/.venv/Scripts/python.exe",
+      "args": [
+        "${workspaceFolder}/template.json",
+        "--in", "${workspaceFolder}/public",
+        "--out", "${workspaceFolder}/out"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

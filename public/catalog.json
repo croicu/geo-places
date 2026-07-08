@@ -1,0 +1,62 @@
+{
+  "version": "1.0",
+  "createdAt": "2026-05-20 02:29:29.216307+00:00",
+  "areas": [
+    {
+      "id": "prague",
+      "name": "Prague",
+      "bbox": [
+        14.369430541992188,
+        50.0410540621467,
+        14.532852172851562,
+        50.124096021346126
+      ],
+      "minRadiusPx": 32,
+      "maxRadiusPx": 512,
+      "liveMapRadiusPx": 640,
+      "manifestUrl": "./areas/prague/manifest.json"
+    },
+    {
+      "id": "berlin",
+      "name": "Berlin",
+      "bbox": [
+        13.195266723632812,
+        52.391208085528824,
+        13.627853393554688,
+        52.63685446339952
+      ],
+      "minRadiusPx": 32,
+      "maxRadiusPx": 512,
+      "liveMapRadiusPx": 640,
+      "manifestUrl": "./areas/berlin/manifest.json"
+    },
+    {
+      "id": "algarve",
+      "name": "Algarve",
+      "bbox": [
+        -8.817901611328125,
+        36.98743385368387,
+        -7.587432861328125,
+        37.31026312729192
+      ],
+      "minRadiusPx": 32,
+      "maxRadiusPx": 512,
+      "liveMapRadiusPx": 640,
+      "manifestUrl": "./areas/algarve/manifest.json"
+    },
+    {
+      "id": "stockholm",
+      "name": "Stockholm",
+      "bbox": [
+        18.022019226966336,
+        59.297853109032935,
+        18.129896614626773,
+        59.345878213144985
+      ],
+      "minRadiusPx": 32,
+      "maxRadiusPx": 512,
+      "liveMapRadiusPx": 640,
+      "manifestUrl": "./areas/stockholm/manifest.json"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "version": "1.0",
+  "createdAt": "2026-05-20 02:29:29.216307+00:00",
+  "areas": [
+    {
+      "id": "algarve",
+      "name": "Algarve",
+      "bbox": [
+        -8.817901611328125,
+        36.98743385368387,
+        -7.587432861328125,
+        37.31026312729192
+      ],
+      "minRadiusPx": 32,
+      "maxRadiusPx": 512,
+      "liveMapRadiusPx": 640,
+      "manifestUrl": "./areas/algarve/manifest.json"
+    }
+  ]
+}

@@ -1,0 +1,188 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project
+
+`geo-places` is a static data repository — no rendering code, no UI. It holds hand-authored area manifests; the generated GeoJSON layer data that `geo-browser` consumes at runtime is built fresh on every deploy and never committed.
+
+It has no relationship to TypeScript, Vite, or Leaflet. Those live in `geo-browser`. This repo's only job is: **manifest in, deploy-ready static files out, published directly to Cloudflare Pages.**
+
+The `geo-builder` CLI (a separate repo, installed via pip) is the only tool that produces generated output here. This repo does not contain builder source code — it consumes the builder as a dependency.
+
+## Commands
+
+```bash
+# Install the builder CLI (pin to a tag for reproducible builds)
+pip install git+https://github.com/croicu/geo-builder.git@v1.0.0
+
+# Build the deploy-ready output for every area into out/ — must be run from repo root
+./build.sh          # or build.cmd on Windows
+```
+
+> `geo-builder` reads the **whole catalog** from `--in` in a single call and acquires data for every area that needs it — there's no per-area invocation. `build.sh` points `--in` at `public/` (read-only; safe) and `--out` directly at `out/`. geo-builder's native output already matches the deploy shape almost exactly (`out/areas/{id}/manifest.json` with `url` populated, `out/areas/{id}/layers/*.geojson`) — `build.sh` only needs to clean up afterward: copy both `catalog.json` and `catalog.debug.json` from `public/` into `out/` (a single run only produces whichever one the active `debug` flag resolved to, never both), and strip geo-builder's `catalog.head*.json` and per-area `.csv` files, which aren't part of the deploy contract. `out/` is gitignored and rebuilt fresh every run — nothing under it is ever committed; `cd.yaml` deploys it directly to Cloudflare Pages via wrangler. See `docs/cli.md` for the full CLI reference and `build.sh` for the cleanup step. `geo-builder` also loads `settings.json`/`settings.local.json` from the current working directory, so `build.sh`/`build.cmd` must be run with CWD at repo root (they `cd` there themselves; running the underlying `geo-builder`/`python -m geo_builder.cli` command directly requires doing this yourself).
+
+## Current Product Shape
+
+`public/` is hand-authored input **only** — never generated into. `out/` is the generated deploy artifact — gitignored, rebuilt fresh every run, never committed:
+
+```text
+build.sh, build.cmd         ← this repo's build scripts (repo root, NOT inside build/ — see Hard Architecture Rules)
+settings.json                ← hand-authored, checked in: geo-builder config (Overpass URL, logLevel)
+settings.local.json          ← hand-authored, gitignored: local overrides (e.g. debug: true)
+template.json                ← hand-authored: shared __poi__/__void__ style template (tasks_path arg)
+build/                        ← reserved exclusively for geo-builder's own debug output; never ours (see Hard Architecture Rules)
+public/                        ← hand-authored input only, committed
+  catalog.json                  ← full: all real areas, used when debug is false
+  catalog.debug.json             ← small subset (currently just algarve): used when debug is true, for fast local iteration
+  areas/
+    prague/
+      manifest.json                ← layers, style, acquisition filters (no "url" yet)
+    berlin/
+      manifest.json
+out/                            ← generated deploy artifact, gitignored, never committed
+  catalog.json                    ← copied through from public/ (always present regardless of debug flag)
+  catalog.debug.json               ← copied through from public/ (always present regardless of debug flag)
+  areas/
+    prague/
+      manifest.json                  ← same filename as the input, "url" now populated
+      layers/
+        1.geojson
+        2.geojson
+    berlin/
+      manifest.json
+      layers/
+```
+
+`public/catalog.json` is **not** the same thing as `catalog.default.json`. `catalog.default.json` is geo-browser's served master registry and does **not** live in this repo. `public/catalog.json` is geo-builder's own build-input catalog (bbox/id/name per area) — it lives here because `geo-builder` requires it to know what to build. Don't confuse the two.
+
+Pipeline:
+
+```text
+public/catalog.json + public/areas/*/manifest.json (hand-authored: bbox, layers, acquisition filters)
+  → geo-builder CLI (single call, reads the whole catalog from --in, writes natively to --out out/)
+    → Overpass API query per area/layer that lacks data
+      → out/catalog*.json + out/areas/*/manifest.json + out/areas/*/layers/*.geojson (gitignored, never committed)
+        → wrangler pages deploy (cd.yaml, on a v* tag push)
+          → Cloudflare Pages serves geo-places.croicu.com
+```
+
+`geo-browser` never talks to Overpass or Nominatim directly. It only ever fetches static files this repo publishes.
+
+## Hard Architecture Rules
+
+- `public/catalog.json`, `public/catalog.debug.json`, and `public/areas/*/manifest.json` are the only hand-edited inputs. Never hand-edit anything under `out/` — always regenerated by `geo-builder`, and gitignored anyway.
+- Data layers in `manifest.json` (ones with an `acquisition` block) must **not** carry a `url` field until `geo-builder` has actually produced that file. `url` is something `geo-builder` adds to its output, not something to pre-populate — a hand-authored `url` pointing at a nonexistent file makes the entire catalog fail to load (silently, as an empty catalog — see `docs/cli.md`).
+- `geo-builder` is the single writer of generated files, writing natively into `out/` (its own `manifest.json`/`layers/` naming already matches what we want, no renaming needed). `build.sh` / `build.cmd` only copy both catalog files through from `public/` and strip `catalog.head*.json` + per-area `.csv` files afterward. If output looks wrong, fix the manifest or the builder — not the generated JSON.
+- **Never put anything we care about inside `build/`.** `geo-builder` hardcodes debug-mode snapshot output to `./build/` relative to CWD and **wipes that directory** (`shutil.rmtree` then recreate) at the start of every debug run — this isn't configurable on geo-builder's side (see `docs/cli.md`). This already destroyed this repo's build scripts once when they lived at `build/build.sh` with `settings.local.json`'s `debug: true` active; that's why the scripts live at repo root (`build.sh`/`build.cmd`) and the generated output lives at `./out` (repo root), not under `build/`. `build/` and `out/` are both gitignored and treated as fully disposable.
+- **`public/catalog.debug.json` is intentional, not stale data.** When `debug: true` (local `settings.local.json` only — gitignored, never present in CI), `geo-builder` resolves the catalog filename to `catalog.debug.json` instead of `catalog.json`. This is a deliberate fast-iteration mechanism: `catalog.debug.json` holds a small subset of areas (currently just `algarve`) so local debug builds skip the cost of acquiring all 4 areas. CI/CD never has `debug: true`, so `ci.yaml`/`cd.yaml` always build the full `catalog.json`. Keep both files' area lists reasonably in sync (same shape, `catalog.debug.json` just a subset) — don't delete `catalog.debug.json` thinking it's leftover cruft.
+- `catalog.default.json` does not live in this repo — it's generated and maintained in `geo-browser`. Do not confuse it with `public/catalog.json` (see Current Product Shape above).
+- No frontend/rendering code belongs in this repo. If a task involves Leaflet, TypeScript, or the PWA shell, it belongs in `geo-browser`, not here.
+- No live API calls happen at serve time. Overpass calls happen only when `geo-builder` runs (locally or in CI) — never at request time from a visitor's browser.
+- **Generated output (`out/`) is never committed to git.** It's rebuilt fresh in `cd.yaml` on every tag push and deployed directly to Cloudflare Pages via `wrangler pages deploy out`. There is no "commit generated files, let Cloudflare auto-deploy on push" step in this repo's model — don't reintroduce one.
+
+## Naming Rules
+
+Directories under `public/areas/` (and correspondingly `out/areas/` after a build) are lowercase, hyphenated if multi-word, and match the `id` used in `public/catalog.json`:
+
+```text
+public/areas/naples/
+public/areas/redmond/
+public/areas/prague/
+```
+
+Files within an area directory — same filename (`manifest.json`) whether hand-authored or generated, distinguished by which top-level directory it's under:
+
+```text
+public/areas/<id>/manifest.json   ← hand-authored, committed, no "url" field
+out/areas/<id>/manifest.json       ← generated, gitignored, "url" populated
+out/areas/<id>/layers/              ← generated, gitignored
+```
+
+## Vocabulary
+
+Use these terms consistently (shared with `geo-browser`'s vocabulary — do not diverge):
+
+```text
+Area      = one city/region, one directory under public/areas/ (and out/areas/ after a build)
+Manifest  = one area's layer/style/acquisition definitions — same filename (manifest.json)
+              hand-authored (public/, no "url") or generated (out/, "url" populated)
+Layers    = the generated GeoJSON feature data for one area, out/areas/<id>/layers/*.geojson
+Catalog   = ambiguous term, disambiguate by name:
+              public/catalog.json = geo-builder's build-input catalog (id/name/bbox); lives here
+              catalog.default.json = geo-browser's served master registry; lives in geo-browser
+```
+
+Do not reintroduce `project` or `dataset` as vocabulary for "area." The ecosystem settled on `area`.
+
+## Manifest & Catalog Format
+
+`public/catalog.json` — one entry per area, drives what `geo-builder` builds:
+
+```json
+{
+  "version": "1.0",
+  "createdAt": "2026-05-20 02:29:29.216307+00:00",
+  "areas": [
+    {
+      "id": "naples",
+      "name": "Naples",
+      "bbox": [14.20, 40.82, 14.30, 40.88],
+      "minRadiusPx": 32,
+      "maxRadiusPx": 512,
+      "liveMapRadiusPx": 640,
+      "manifestUrl": "./areas/naples/manifest.json"
+    }
+  ]
+}
+```
+
+`bbox` is `[west, south, east, north]` (`[minLon, minLat, maxLon, maxLat]`), same coordinate order convention as GeoJSON, per `geo-browser`'s CLAUDE.md (`[longitude, latitude]`). Every area referenced here **must** have a matching `manifestUrl` file on disk — a missing one fails the entire catalog load (see `docs/cli.md`).
+
+`public/areas/<id>/manifest.json` — hand-authored layer/style/acquisition definitions for one area:
+
+```json
+{
+  "version": 1,
+  "layers": [
+    {
+      "id": "1",
+      "name": "Parks",
+      "type": "circle",
+      "visible": true,
+      "style": { "opacity": 0.3, "radiusScale": 1.0, "surface": true, "color": "#007f00" },
+      "acquisition": { "provider": "overpass", "filters": { "leisure": ["park"] } }
+    }
+  ],
+  "aggregation": {},
+  "deduping": {}
+}
+```
+
+No `url` field on layers that haven't been built yet (see Hard Architecture Rules above).
+
+## CI/CD
+
+Two GitHub Actions workflows:
+
+- **`ci.yaml`** — runs on push (non-`main` branches) and PRs into `main`. Runs `build.sh` as a validation build (installs `geo-builder`, builds the whole catalog against live Overpass into `out/`). Doesn't deploy or commit anything.
+- **`cd.yaml`** — runs on `v*` tag push. Runs `build.sh`, then deploys `out/` directly to Cloudflare Pages via `cloudflare/wrangler-action` (`wrangler pages deploy out --project-name=geo-places`). No git commit involved at all — the build output never touches git history.
+
+> Pin the `geo-builder` install to a tag, not `@main`, so CI runs are reproducible and don't silently pick up unreleased builder changes. Set via the `GEO_BUILDER_REF` env var that `build.sh` / `build.cmd` read. Note CI's `settings.local.json` won't exist (gitignored), so `debug` is always `false` there — the `build/` wipe hazard is a local-only concern.
+
+## Testing Rules
+
+This repo has no application logic to unit test — it is data plus CI orchestration. If validation is needed, prefer a lightweight schema check (e.g. does every `public/areas/*/manifest.json` conform to the expected shape, does every `public/catalog.json` entry have a matching `manifestUrl` file on disk) over a full test suite. Confirm with the PM whether this is worth building now or deferred.
+
+## Next Likely Work
+
+Good next branches:
+
+1. ~~Decide whether `geo-builder` should gain a `geo-build` console-script entry point, or `python -m geo_builder.cli` stays the permanent invocation.~~ Resolved: `geo-builder` is now an installable console script — see `docs/cli.md`.
+2. ~~Confirm final `manifest.json`/catalog schema against what `geo-builder` actually consumes.~~ Resolved via direct testing against a real geo-builder build — see Current Product Shape and Manifest & Catalog Format above.
+3. ~~Decide whether `layers.json` generation should fail CI loudly on Overpass/Nominatim errors, or fall back to stale committed data.~~ Resolved: build mode already fails loud (exit `1`, no `--out` artifacts written on error) — see `docs/cli.md`. Moot anyway now: generated output is never committed, so there's no "stale committed data" to fall back to.
+4. Follow up with the geo-builder team on the open items filed in `docs/cli.md`'s "geo-places usage contract" section — in particular, the silent-empty-catalog failure mode when `--in` fails to load (currently swallowed with no error message).
+5. Confirm the `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` secrets are actually configured on this repo for `cd.yaml`'s wrangler deploy step to work.
+6. Use the mock/fake Overpass provider (`geo_builder.providers.fake`) for local debug builds later, to cut the remaining network cost of `catalog.debug.json`'s single-area build.
+
+Keep branches narrow.
