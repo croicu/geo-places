@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "geo-build: whole catalog",
+      "name": "geo-build (Overpass)",
       "type": "debugpy",
       "request": "launch",
       "module": "geo_builder.cli",
@@ -10,6 +10,20 @@
       "args": [
         "${workspaceFolder}/template.json",
         "--in", "${workspaceFolder}/public",
+        "--out", "${workspaceFolder}/out"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "geo-build (Test)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "geo_builder.cli",
+      "python": "${workspaceFolder}/../geo-builder/.venv/Scripts/python.exe",
+      "args": [
+        "${workspaceFolder}/template.json",
+        "--in", "${workspaceFolder}/tests/data",
         "--out", "${workspaceFolder}/out"
       ],
       "console": "integratedTerminal",
