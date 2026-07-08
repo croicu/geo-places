@@ -26,6 +26,11 @@
 # snapshots to ./build/ relative to CWD and wipes that directory on every debug run
 # (settings.local.json's debug:true). This script therefore lives at repo root, not
 # under build/ — putting anything we care about under build/ WILL eventually get deleted.
+#
+# GEO_PLACES_CATALOG_DIR / GEO_PLACES_TASKS_PATH override the catalog/template used —
+# ci.yaml points these at ci-fixtures/ (a tiny synthetic area with provider: fake, no
+# network) for routine validation. cd.yaml leaves them unset, using the real public/
+# catalog against live Overpass.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -33,8 +38,8 @@ REPO_ROOT="$SCRIPT_DIR"
 cd "$REPO_ROOT"
 
 GEO_BUILDER_REF="${GEO_BUILDER_REF:-main}"
-CATALOG_DIR="$REPO_ROOT/public"
-TASKS_PATH="$REPO_ROOT/template.json"
+CATALOG_DIR="${GEO_PLACES_CATALOG_DIR:-$REPO_ROOT/public}"
+TASKS_PATH="${GEO_PLACES_TASKS_PATH:-$REPO_ROOT/template.json}"
 DEPLOY_OUT="$REPO_ROOT/out"
 
 rm -rf "$DEPLOY_OUT"

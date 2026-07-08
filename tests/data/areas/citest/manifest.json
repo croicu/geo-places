@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "layers": [
+    {
+      "id": "1",
+      "name": "Test Layer",
+      "type": "circle",
+      "visible": true,
+      "style": {
+        "opacity": 0.3,
+        "radiusScale": 1.0,
+        "surface": false,
+        "color": "#007f00"
+      },
+      "acquisition": {
+        "provider": "fake",
+        "filters": {
+          "leisure": ["park"]
+        }
+      }
+    },
+    {
+      "id": "__poi__",
+      "name": "Points of Interest",
+      "type": "__poi__",
+      "visible": true,
+      "style": {
+        "opacity": 0.9,
+        "color": "#7f0000",
+        "radius": 8,
+        "minZoom": 16
+      }
+    },
+    {
+      "id": "__void__",
+      "name": "Mundane",
+      "type": "__void__",
+      "visible": false,
+      "style": {
+        "opacity": 0.3,
+        "color": "#3f3f3f"
+      }
+    }
+  ],
+  "aggregation": {},
+  "deduping": {}
+}
