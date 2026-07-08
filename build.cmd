@@ -25,14 +25,19 @@ REM is reserved exclusively for geo-builder's own debug output: geo-builder hard
 REM debug snapshots to .\build\ relative to CWD and wipes that directory on every debug
 REM run (settings.local.json's debug:true). This script therefore lives at repo root,
 REM not under build\ -- putting anything we care about under build\ WILL eventually get deleted.
+REM
+REM GEO_PLACES_CATALOG_DIR / GEO_PLACES_TASKS_PATH override the catalog/template used --
+REM ci.yaml points these at ci-fixtures\ (a tiny synthetic area with provider: fake, no
+REM network) for routine validation. cd.yaml leaves them unset, using the real public\
+REM catalog against live Overpass.
 
 set "REPO_ROOT=%~dp0"
 if "%REPO_ROOT:~-1%"=="\" set "REPO_ROOT=%REPO_ROOT:~0,-1%"
 cd /d "%REPO_ROOT%"
 
 if "%GEO_BUILDER_REF%"=="" set "GEO_BUILDER_REF=main"
-set "CATALOG_DIR=%REPO_ROOT%\public"
-set "TASKS_PATH=%REPO_ROOT%\template.json"
+if "%GEO_PLACES_CATALOG_DIR%"=="" (set "CATALOG_DIR=%REPO_ROOT%\public") else (set "CATALOG_DIR=%GEO_PLACES_CATALOG_DIR%")
+if "%GEO_PLACES_TASKS_PATH%"=="" (set "TASKS_PATH=%REPO_ROOT%\template.json") else (set "TASKS_PATH=%GEO_PLACES_TASKS_PATH%")
 set "DEPLOY_OUT=%REPO_ROOT%\out"
 if exist "%DEPLOY_OUT%" rmdir /s /q "%DEPLOY_OUT%"
 

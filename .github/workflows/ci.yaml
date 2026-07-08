@@ -20,5 +20,13 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Build all areas (validation only, no commit)
+      - name: Validate public/ catalog and manifests (no network)
+        run: |
+          pip install --quiet pytest
+          pytest tests/ci/test_catalog.py -v
+
+      - name: Build against fake provider (validates the pipeline, no network)
+        env:
+          GEO_PLACES_CATALOG_DIR: ${{ github.workspace }}/tests/data
+          GEO_PLACES_TASKS_PATH: ${{ github.workspace }}/tests/data/areas/citest/manifest.json
         run: bash build.sh

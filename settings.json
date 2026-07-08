@@ -5,6 +5,9 @@
   "providers": {
     "overpass": {
       "url": "https://overpass-api.de/api/interpreter"
+    },
+    "fake": {
+      "dataPath": "tests/data/providers/fake.json"
     }
   }
 }

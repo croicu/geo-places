@@ -28,9 +28,11 @@ pip install git+https://github.com/croicu/geo-builder.git@v1.0.0
 
 ```text
 build.sh, build.cmd         ← this repo's build scripts (repo root, NOT inside build/ — see Hard Architecture Rules)
-settings.json                ← hand-authored, checked in: geo-builder config (Overpass URL, logLevel)
+settings.json                ← hand-authored, checked in: geo-builder config (Overpass URL, logLevel, providers.fake.dataPath)
 settings.local.json          ← hand-authored, gitignored: local overrides (e.g. debug: true)
 template.json                ← hand-authored: shared __poi__/__void__ style template (tasks_path arg)
+tests/ci/test_catalog.py        ← pytest, no-network structural validation of public/'s catalog + manifests (ci.yaml)
+tests/data/                     ← synthetic area (catalog.json, catalog.debug.json, areas/citest/) + tests/data/providers/fake.json (canned Overpass response) — mirrors geo-builder's own tests/data/providers/fake.json convention. ci.yaml builds this, not public/, to avoid live Overpass on every push
 build/                        ← reserved exclusively for geo-builder's own debug output; never ours (see Hard Architecture Rules)
 public/                        ← hand-authored input only, committed
   catalog.json                  ← full: all real areas, used when debug is false
@@ -161,18 +163,22 @@ Do not reintroduce `project` or `dataset` as vocabulary for "area." The ecosyste
 
 No `url` field on layers that haven't been built yet (see Hard Architecture Rules above).
 
+**Provider selection is per-layer, not a CLI flag or global setting.** Each layer's `acquisition.provider` (`"overpass"` or `"fake"`) hardcodes which provider that layer uses — `settings.json`'s `providers` block only holds *config for* each provider (`overpass.url`, `fake.dataPath`), it doesn't select between them. `public/`'s real areas all use `"overpass"`; `tests/data/areas/citest/manifest.json` (the `ci.yaml` fixture) uses `"fake"`. There is deliberately no environment-variable or CLI-flag override for this in `geo-builder` — switching providers means switching which catalog/manifest set `--in` points at (`GEO_PLACES_CATALOG_DIR` in `build.sh`), not flipping a setting. Don't add a provider CLI flag to `geo-builder` to "simplify" this — the per-layer approach keeps `geo-builder` itself unaware that geo-places uses two different catalogs for two different purposes.
+
 ## CI/CD
 
 Two GitHub Actions workflows:
 
-- **`ci.yaml`** — runs on push (non-`main` branches) and PRs into `main`. Runs `build.sh` as a validation build (installs `geo-builder`, builds the whole catalog against live Overpass into `out/`). Doesn't deploy or commit anything.
-- **`cd.yaml`** — runs on `v*` tag push. Runs `build.sh`, then deploys `out/` directly to Cloudflare Pages via `cloudflare/wrangler-action` (`wrangler pages deploy out --project-name=geo-places`). No git commit involved at all — the build output never touches git history.
+- **`ci.yaml`** — runs on push (non-`main` branches) and PRs into `main`. Two steps, both network-free: (1) `pytest tests/ci/test_catalog.py` structurally validates `public/`'s real catalog + manifests (bbox shape, `manifestUrl` resolves, no premature `url`, etc.) — this is what actually catches mistakes in the data being changed; (2) `build.sh` with `GEO_PLACES_CATALOG_DIR`/`GEO_PLACES_TASKS_PATH` pointed at `tests/data/` instead of `public/`, exercising the real build pipeline (install → catalog load → acquisition → aggregation → dedupe → save) against a synthetic single-area catalog whose layer uses `"provider": "fake"` (replays `tests/data/providers/fake.json` instead of hitting Overpass). Doesn't deploy or commit anything. The check name required by branch protection on `main` is `build` (the job name).
+- **`cd.yaml`** — runs on `v*` tag push. Runs `build.sh` unmodified (env vars unset, so it uses the real `public/` catalog against live Overpass), then deploys `out/` directly to Cloudflare Pages via `cloudflare/wrangler-action` (`wrangler pages deploy out --project-name=geo-places`). No git commit involved at all — the build output never touches git history. This is the only workflow that hits live Overpass.
 
 > Pin the `geo-builder` install to a tag, not `@main`, so CI runs are reproducible and don't silently pick up unreleased builder changes. Set via the `GEO_BUILDER_REF` env var that `build.sh` / `build.cmd` read. Note CI's `settings.local.json` won't exist (gitignored), so `debug` is always `false` there — the `build/` wipe hazard is a local-only concern.
+>
+> `main` has branch protection: PRs required (no direct push), the `build` status check must pass, no mandatory review count (personal-account repos can't do per-user bypass of required reviews — see git history around the lockdown). Make changes on a branch (e.g. `working`) and open a PR. The repo is **public** (flipped from private) — GitHub's free tier doesn't support branch protection on private repos at all (classic protection and rulesets both refuse with a 403). No secrets are exposed by this; `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` remain protected repo secrets regardless of visibility.
 
 ## Testing Rules
 
-This repo has no application logic to unit test — it is data plus CI orchestration. If validation is needed, prefer a lightweight schema check (e.g. does every `public/areas/*/manifest.json` conform to the expected shape, does every `public/catalog.json` entry have a matching `manifestUrl` file on disk) over a full test suite. Confirm with the PM whether this is worth building now or deferred.
+This repo has no application logic to unit test — it is data plus CI orchestration. `tests/ci/test_catalog.py` is the lightweight schema check (pytest, run by `ci.yaml`): validates every `public/*.json` catalog's areas have a well-formed `bbox`, matching `manifestUrl` file, and that manifests don't carry premature `url` fields. Extend this suite rather than adding a heavier test framework if more validation is needed.
 
 ## Next Likely Work
 
@@ -182,7 +188,8 @@ Good next branches:
 2. ~~Confirm final `manifest.json`/catalog schema against what `geo-builder` actually consumes.~~ Resolved via direct testing against a real geo-builder build — see Current Product Shape and Manifest & Catalog Format above.
 3. ~~Decide whether `layers.json` generation should fail CI loudly on Overpass/Nominatim errors, or fall back to stale committed data.~~ Resolved: build mode already fails loud (exit `1`, no `--out` artifacts written on error) — see `docs/cli.md`. Moot anyway now: generated output is never committed, so there's no "stale committed data" to fall back to.
 4. Follow up with the geo-builder team on the open items filed in `docs/cli.md`'s "geo-places usage contract" section — in particular, the silent-empty-catalog failure mode when `--in` fails to load (currently swallowed with no error message).
-5. Confirm the `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` secrets are actually configured on this repo for `cd.yaml`'s wrangler deploy step to work.
-6. Use the mock/fake Overpass provider (`geo_builder.providers.fake`) for local debug builds later, to cut the remaining network cost of `catalog.debug.json`'s single-area build.
+5. ~~Confirm the `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` secrets are actually configured on this repo for `cd.yaml`'s wrangler deploy step to work.~~ Resolved: `v0.1.2` deployed successfully, `geo-places.croicu.com` confirmed serving the real built `catalog.json` and area manifests.
+6. ~~Use the mock/fake Overpass provider (`geo_builder.providers.fake`) to cut network cost.~~ Resolved for CI — `ci.yaml` now builds `tests/data/` (provider: fake) instead of live Overpass, see CI/CD above. Still open: `catalog.debug.json`'s local fast-iteration build still hits real Overpass for `algarve`; switching that to `provider: fake` too is a possible follow-up but would need `algarve`'s manifest layers rewritten to use the fake provider, which changes what a "debug build" actually exercises.
+7. `cd.yaml`'s v0.1.2 run flagged `actions/checkout@v4`, `actions/setup-python@v5`, and `cloudflare/wrangler-action@v3` as targeting the deprecated Node 20 runtime (currently auto-forced onto Node 24 by GitHub, not yet a hard failure). Bump to newer action versions when convenient.
 
 Keep branches narrow.

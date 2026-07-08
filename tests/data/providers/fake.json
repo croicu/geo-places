@@ -1,0 +1,14 @@
+{
+  "elements": [
+    {
+      "type": "node",
+      "id": 1,
+      "lat": 0.005,
+      "lon": 0.005,
+      "tags": {
+        "leisure": "park",
+        "name": "CI Fixture Park"
+      }
+    }
+  ]
+}
