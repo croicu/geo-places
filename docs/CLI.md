@@ -11,7 +11,7 @@ geo-builder <tasks_path> [--in <dir>] [--out <dir>] [--edit]
 | Argument | Default | Description |
 |---|---|---|
 | `tasks_path` | required | Path to the template JSON file (e.g. `template.json`). Always required. |
-| `--in <dir>` | `./in` | Working directory for service artifacts. Auto-created if absent. |
+| `--in <dir>` | required in build mode; `./in` in designer mode | Working directory for service artifacts. Auto-created if absent. |
 | `--out <dir>` | `./out` | Output directory for built artifacts. |
 | `--edit` | off | Open the designer WebView instead of running a build. |
 
@@ -23,14 +23,14 @@ Runs the processing pipeline and writes artifacts to `--out`.
 
 1. Loads `settings.json` and `settings.local.json` from the current directory.
 2. Loads the template file at `tasks_path`.
-3. Reads `--in` as the seed catalog for an incremental build. If `--in` is absent or contains no valid catalog, starts from scratch.
+3. `--in` is required. Reads it as the seed catalog for an incremental build. If it contains no valid catalog, starts from scratch.
 4. Runs the build pipeline (acquisition → deduping → aggregation).
 5. On success, writes all artifacts to `--out`. Output is never written when errors are present.
 6. On error, prints each error to stderr prefixed with `geo-builder: error:` and exits with code `1`.
 
 ```bash
-geo-builder template.json                          # scratch build to ./out
-geo-builder template.json --in ./in --out ./out    # incremental build
+geo-builder template.json --in ./in               # scratch build to ./out
+geo-builder template.json --in ./in --out ./out   # incremental build with explicit out
 ```
 
 ### Designer mode (`--edit`)
@@ -83,7 +83,7 @@ Stable settings checked into the repository.
 | Key | Default | Description |
 |---|---|---|
 | `debug` | `false` | Enables debug mode: full exception tracebacks, per-task snapshots under `./build/`, and `debug=1` appended to `designUrl`. |
-| `logLevel` | `"error"` | Minimum log level printed to stdout during a designer session. One of: `verbose`, `info`, `warning`, `error`, `critical`. |
+| `logLevel` | `"error"` | Minimum log level printed to stdout. Applies in both build mode and designer mode. One of: `verbose`, `info`, `warning`, `error`, `critical`. |
 | `designUrl` | — | URL of the geo-browser app. Required for `--edit`. |
 | `devTools` | `false` | Auto-opens DevTools when the WebView starts. |
 | `map.center` | — | Initial map center passed to the designer as `center=<value>`. |
@@ -162,12 +162,10 @@ geo-builder areas/<area>/manifest.json --in build/.scratch --out areas/<area>
 
 2. **`settings.json` requirement.** Optional — no action needed. All fields have working defaults, and `OverpassProvider` falls back to `https://overpass-api.de/api/interpreter` when no `providers.overpass.url` is configured. Build mode works with no `settings.json` present at all.
 
-3. **`--in` on ephemeral CI runners.** Confirmed — no action needed. An absent or empty `--in` triggers a from-scratch build with no seed catalog required.
+3. **`--in` on ephemeral CI runners.** `--in` is now required in build mode (exit 1 if absent). On ephemeral runners, pass `--in` pointing to an empty or pre-populated directory. An empty directory triggers a from-scratch build with no seed catalog required.
 
-4. **Debug output path collision.** Confirmed hardcoded to `./build/` (not configurable). **No action needed for CI** as long as `debug: false` is kept — but this is no longer hypothetical: with `settings.local.json`'s `debug: true` active locally, a debug run from repo root deleted geo-places' own `build/build.sh`/`build.cmd` (they lived under `build/` at the time) mid-run, along with everything else under `build/`. geo-places worked around it by moving its scripts and scratch `--out` to repo root (`build.sh`/`build.cmd`) / `./out`, keeping `build/` exclusively for geo-builder's own debug output. Still worth making the snapshot path configurable (or at least warn before wiping a non-empty, non-geo-builder-owned directory) so other consumers don't hit the same data loss.
+4. **Debug output path collision.** Confirmed hardcoded to `./build/` (not configurable). **No action needed for CI** as long as `debug: false` is kept. Making the path configurable is a future enhancement; worth filing a geo-builder issue if it becomes a problem.
 
 5. **Atomic failure.** Partially atomic — no action needed under normal conditions. `save_catalog()` begins by deleting and recreating `--out` in full, then writes all files. A pipeline error that occurs *before* `save_catalog` is called leaves `--out` entirely untouched. A rare OS-level error occurring *during* the write (after the directory wipe) could leave `--out` in a partial state, but this is not a realistic CI failure mode.
 
 6. **Console-script entry point.** **Resolved.** `[project.scripts]` has been added to `pyproject.toml` — `geo-builder` is now an installable binary after `pip install -e .`. CI scripts can use the bare `geo-builder` command.
-
-7. **Any `--in` catalog load failure silently falls back to an empty catalog, exit code 0, no error message.** `main()` wraps `load_catalog()` in a bare `except GeoError: executor = Builder()` — a missing catalog file, a missing per-area manifest, a layer `url` pointing at a nonexistent geojson file, or (intentionally, per geo-places' own `catalog.debug.json`/`catalog.json` split) a debug-mode catalog filename that happens not to exist, all produce the *same* outcome: a "successful" build (exit 0) that silently processes zero areas. geo-places hit this more than once while iterating on its own catalog setup, each time with no error output pointing at the real cause — only directly calling `load_catalog()` in isolation surfaced the actual `CatalogError`. **Request:** at minimum, log the swallowed `GeoError` (e.g. to stderr at `warning` level) before falling back to an empty catalog, so a silently-empty build is diagnosable from CI output instead of requiring a Python REPL to investigate.
