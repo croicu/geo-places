@@ -116,19 +116,6 @@
       }
     },
     {
-      "id": "__poi__",
-      "name": "Points of Interest",
-      "type": "__poi__",
-      "visible": true,
-      "style": {
-        "opacity": 0.9,
-        "type": "circle",
-        "color": "#7f0000",
-        "radius": 8,
-        "minZoom": 16
-      }
-    },
-    {
       "id": "__search__",
       "name": "Search Results",
       "type": "__search__",
@@ -158,6 +145,19 @@
       "style": {
         "opacity": 0.3,
         "color": "#3f3f3f"
+      }
+    },
+    {
+      "id": "__poi__",
+      "name": "Points of Interest",
+      "type": "__poi__",
+      "visible": true,
+      "style": {
+        "opacity": 0.9,
+        "type": "circle",
+        "color": "#7f0000",
+        "radius": 8,
+        "minZoom": 16
       }
     }
   ],

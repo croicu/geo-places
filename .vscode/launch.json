@@ -2,6 +2,22 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "geo-build (Edit)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "geo_builder.cli",
+      "python": "${workspaceFolder}/../geo-builder/.venv/Scripts/python.exe",
+      "args": [
+        "${workspaceFolder}/template.json",
+        "--in", "${workspaceFolder}/public",
+        "--out", "${workspaceFolder}/out",
+        "--edit",
+        "--noninvasive"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
       "name": "geo-build (Overpass)",
       "type": "debugpy",
       "request": "launch",

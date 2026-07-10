@@ -1,0 +1,11 @@
+{
+  "name": "geo-places-preview",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --config vite.config.js"
+  },
+  "devDependencies": {
+    "vite": "^8.1.3"
+  }
+}

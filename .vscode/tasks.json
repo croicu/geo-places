@@ -1,0 +1,54 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "npm: dev",
+      "type": "shell",
+      "command": "npm run dev",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "vite",
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*",
+          "endsPattern": ".*Local:.*"
+        }
+      }
+    },
+    {
+      "label": "build: geo-places",
+      "type": "shell",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "windows": {
+        "command": "${workspaceFolder}\\build.cmd"
+      },
+      "linux": {
+        "command": "bash ${workspaceFolder}/build.sh"
+      },
+      "osx": {
+        "command": "bash ${workspaceFolder}/build.sh"
+      }
+    },
+    {
+      "label": "clean: public/ (strip designer-pulled data)",
+      "type": "shell",
+      "problemMatcher": [],
+      "windows": {
+        "command": "${workspaceFolder}\\clean.cmd"
+      },
+      "linux": {
+        "command": "bash ${workspaceFolder}/clean.sh"
+      },
+      "osx": {
+        "command": "bash ${workspaceFolder}/clean.sh"
+      }
+    }
+  ]
+}
