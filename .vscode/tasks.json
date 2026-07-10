@@ -17,6 +17,30 @@
           "endsPattern": ".*Local:.*"
         }
       }
+    },
+    {
+      "label": "build: geo-places",
+      "type": "shell",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "windows": {
+        "command": "${workspaceFolder}\\build.cmd"
+      },
+      "linux": {
+        "command": "bash ${workspaceFolder}/build.sh"
+      },
+      "osx": {
+        "command": "bash ${workspaceFolder}/build.sh"
+      }
+    },
+    {
+      "label": "clean: public/ (strip designer-pulled data)",
+      "type": "shell",
+      "command": "python ${workspaceFolder}/scripts/clean_public.py",
+      "problemMatcher": []
     }
   ]
 }

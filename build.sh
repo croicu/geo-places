@@ -6,10 +6,13 @@
 #
 # public/ is hand-authored input ONLY: public/catalog.json + public/catalog.debug.json
 # (id/name/bbox per area) + public/areas/<id>/manifest.json (layer/acquisition defs, no
-# "url" field yet). Never generated into. geo-builder reads the *whole* catalog from
-# --in in one call and acquires data for every area that needs it — there is no
-# per-area loop. tasks_path is only used for __poi__/__void__ style lookup, so it points
-# at the shared template.json at repo root rather than any one area's manifest.
+# "url" field yet). Never generated into — this script runs scripts/clean_public.py
+# before every build to guarantee it (see that script's docstring for why: designer
+# mode pollutes public/ with real url/geojson/head-file data on first launch). geo-builder
+# reads the *whole* catalog from --in in one call and acquires data for every area that
+# needs it — there is no per-area loop. tasks_path is only used for __poi__/__void__
+# style lookup, so it points at the shared template.json at repo root rather than any
+# one area's manifest.
 #
 # geo-builder writes its own native shape directly to out/ (--out out/): catalog.head*.json,
 # catalog.json OR catalog.debug.json (whichever the active debug flag resolves to — never
@@ -63,6 +66,12 @@ if [ "$PYTHON" = "python" ]; then
 else
   echo "Using geo-builder venv at ${SIBLING_VENV_DIR} (skipping install)"
 fi
+
+# geo-builder's designer mode (--edit) pulls existing built artifacts into --in on
+# first launch, writing "url" fields, layers/*.geojson, and catalog.head*.json straight
+# into public/ — always restore it to input-only shape before building, regardless of
+# what a previous designer session (or a forgotten manual cleanup) left behind.
+"$PYTHON" "$REPO_ROOT/scripts/clean_public.py"
 
 if [ ! -f "$CATALOG_DIR/catalog.json" ]; then
   echo "No catalog found at ${CATALOG_DIR}/catalog.json" >&2

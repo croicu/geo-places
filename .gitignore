@@ -4,3 +4,12 @@ settings.local.json
 __pycache__/
 .pytest_cache/
 node_modules/
+
+# Defense-in-depth: geo-builder's designer mode (--edit) can write real acquired data
+# straight into public/ (see CLAUDE.md Hard Architecture Rules + scripts/clean_public.py).
+# build.sh/build.cmd clean this before every build, but ignore it too so it can never
+# get committed even if that cleanup step is skipped or forgotten.
+public/areas/*/layers/
+public/areas/*/*.csv
+public/catalog.head.json
+public/catalog.head.debug.json

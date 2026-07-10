@@ -169,3 +169,33 @@ geo-builder areas/<area>/manifest.json --in build/.scratch --out areas/<area>
 5. **Atomic failure.** Partially atomic — no action needed under normal conditions. `save_catalog()` begins by deleting and recreating `--out` in full, then writes all files. A pipeline error that occurs *before* `save_catalog` is called leaves `--out` entirely untouched. A rare OS-level error occurring *during* the write (after the directory wipe) could leave `--out` in a partial state, but this is not a realistic CI failure mode.
 
 6. **Console-script entry point.** **Resolved.** `[project.scripts]` has been added to `pyproject.toml` — `geo-builder` is now an installable binary after `pip install -e .`. CI scripts can use the bare `geo-builder` command.
+
+### New request: `--noninvasive` flag for designer mode
+
+**Problem.** geo-places uses designer mode (`--edit --in public/`) to make structural catalog/manifest edits (bbox, layer styles, filters) directly in `public/`, which must stay hand-authored-input-only — no `url` fields, no `layers/*.geojson`, no `catalog.head*.json` (see `CLAUDE.md`'s Hard Architecture Rules in geo-places). But per the documented "First launch" behavior above, if `--in` has no head file, designer mode pulls real acquired artifacts (`url` fields, `layers/*.geojson`, `catalog.head*.json`) straight into `--in`. Traced through `designer/host.py`'s `launch()`: the pull origin is derived from `designUrl`'s own origin, not a separate data-source setting, and `_pull()` writes everything — including `catalogUrl` — verbatim to `--in`.
+
+This has real consequences for geo-places specifically:
+- It broke `tests/ci/test_catalog.py`'s no-premature-`url` check.
+- Since acquired layers now have real `geojson` data loaded, `has_data_layers` would skip re-acquisition on the next build, silently breaking the "always rebuild fresh from Overpass on deploy" invariant `cd.yaml` depends on.
+- One pulled `catalog.head.json` had an **absolute** `catalogUrl` (`https://geo-places.croicu.com/catalog.json`) rather than a relative one. This only resolved correctly by a Windows-specific `pathlib` join quirk (`Path("public") / "https://…"` happened to collapse to `public/catalog.json`) — it would almost certainly resolve to a broken path on Linux, which is what `cd.yaml` actually deploys from.
+
+geo-places worked around all of this locally with a defense-in-depth script (`scripts/clean_public.py`, run automatically before every build) that strips `url` fields, deletes `layers/`, and deletes stray `catalog.head*.json` from `public/` — but this is a workaround, not a fix, and depends on remembering to run it (or trusting `build.sh` to).
+
+**Requested fix — new opt-in flag:**
+
+```bash
+geo-builder template.json --in public --edit --noninvasive
+```
+
+When `--noninvasive` is passed (only meaningful together with `--edit`):
+
+- **Skip the "first launch" pull into `--in` entirely** — regardless of whether `--in` has a head file. `--in` is loaded and used exactly as it already is (structural manifests only, whatever `load_catalog` finds), with no network pull writing into it.
+- Everything that *already* only writes structural data back to `--in` should keep working exactly as today — this is most of what a geo-places-style editing session needs:
+  - Bbox edits (`SET_AREA_BBOX` → `save_catalog_meta(catalog, in_dir, ...)`) — writes `catalog.json`/head only, never touches area manifests' `url`/geojson.
+  - Style/filter/layer-list edits (`PUT_AREA_JSON` → `area.apply_manifest(data.manifest, in_dir)`) — as long as the manifest round-tripped through the UI never contained a `url` field to begin with (guaranteed if the initial pull never ran), this stays clean automatically.
+- Real builds (`Builder(...).run()`, triggered by bbox/style changes needing re-acquisition) continue to write full acquired data to `--out` only, same as today — `--noninvasive` doesn't change build/acquisition behavior, only what touches `--in`.
+- Not requesting a change to default (non-`--noninvasive`) behavior — this needs to be strictly opt-in so nothing about the existing "pull real data for a full interactive preview" workflow changes for other designer-mode use cases.
+
+**Also worth fixing regardless of the flag above** (both are real bugs independent of this feature request):
+1. `pull.py`'s head-file handling should always write a **relative** local `catalogUrl` (e.g. `"./catalog.json"`), never persist whatever absolute URL the service happened to return.
+2. `assetsUrl` in `settings.json` (added speculatively on the geo-places side) is currently **not read anywhere** in `geo-builder` — the pull origin is always derived from `designUrl`'s own origin instead. Either wire up a real separate data-source setting, or document clearly that `designUrl`'s origin is what's actually used, so users don't assume `assetsUrl` does something it doesn't.

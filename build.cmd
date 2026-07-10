@@ -5,10 +5,13 @@ REM Local Windows equivalent of build.sh (which is what CI actually runs).
 REM
 REM public\ is hand-authored input ONLY: public\catalog.json + public\catalog.debug.json
 REM (id/name/bbox per area) + public\areas\<id>\manifest.json (layer/acquisition defs, no
-REM "url" field yet). Never generated into. geo-builder reads the *whole* catalog from
-REM --in in one call and acquires data for every area that needs it -- there is no
-REM per-area loop. tasks_path is only used for __poi__/__void__ style lookup, so it
-REM points at the shared template.json at repo root rather than any one area's manifest.
+REM "url" field yet). Never generated into -- this script runs scripts\clean_public.py
+REM before every build to guarantee it (see that script's docstring for why: designer
+REM mode pollutes public\ with real url/geojson/head-file data on first launch). geo-builder
+REM reads the *whole* catalog from --in in one call and acquires data for every area that
+REM needs it -- there is no per-area loop. tasks_path is only used for __poi__/__void__
+REM style lookup, so it points at the shared template.json at repo root rather than any
+REM one area's manifest.
 REM
 REM geo-builder writes its own native shape directly to out\ (--out out\): catalog.head*.json,
 REM catalog.json OR catalog.debug.json (whichever the active debug flag resolves to -- never
@@ -55,6 +58,13 @@ if exist "%SIBLING_VENV_PY%" (
     pip install --quiet "git+https://github.com/croicu/geo-builder.git@%GEO_BUILDER_REF%"
     if errorlevel 1 exit /b 1
 )
+
+REM geo-builder's designer mode (--edit) pulls existing built artifacts into --in on
+REM first launch, writing "url" fields, layers\*.geojson, and catalog.head*.json straight
+REM into public\ -- always restore it to input-only shape before building, regardless of
+REM what a previous designer session (or a forgotten manual cleanup) left behind.
+"%PYTHON%" "%REPO_ROOT%\scripts\clean_public.py"
+if errorlevel 1 exit /b 1
 
 if not exist "%CATALOG_DIR%\catalog.json" (
     echo No catalog found at %CATALOG_DIR%\catalog.json 1>&2
