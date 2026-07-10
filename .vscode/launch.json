@@ -11,7 +11,8 @@
         "${workspaceFolder}/template.json",
         "--in", "${workspaceFolder}/public",
         "--out", "${workspaceFolder}/out",
-        "--edit"
+        "--edit",
+        "--noninvasive"
       ],
       "console": "integratedTerminal",
       "justMyCode": true

@@ -39,8 +39,16 @@
     {
       "label": "clean: public/ (strip designer-pulled data)",
       "type": "shell",
-      "command": "python ${workspaceFolder}/scripts/clean_public.py",
-      "problemMatcher": []
+      "problemMatcher": [],
+      "windows": {
+        "command": "${workspaceFolder}\\clean.cmd"
+      },
+      "linux": {
+        "command": "bash ${workspaceFolder}/clean.sh"
+      },
+      "osx": {
+        "command": "bash ${workspaceFolder}/clean.sh"
+      }
     }
   ]
 }

@@ -172,6 +172,8 @@ geo-builder areas/<area>/manifest.json --in build/.scratch --out areas/<area>
 
 ### New request: `--noninvasive` flag for designer mode
 
+**Status: resolved in geo-builder `main`** (2026-07-10) — `--edit --noninvasive` skips the first-launch pull into `--in` as requested below. Not yet in a tagged release: `build.sh`/`build.cmd` pin CI/CD's `geo-builder` install via `GEO_BUILDER_REF` to a tag for reproducibility (see CLAUDE.md), so that path won't pick this up until a new tag is cut. Local designer sessions launched via `.vscode/launch.json`'s "geo-build (Edit)" config run straight against the sibling `geo-builder` checkout's venv (no version pin), so they already get it — that config now passes `--noninvasive`. `scripts/clean_public.py` stays in place as defense-in-depth (also cleans up automatically if `--noninvasive` is ever forgotten on a given run) and because it's still needed for direct CLI invocations against a tagged release.
+
 **Problem.** geo-places uses designer mode (`--edit --in public/`) to make structural catalog/manifest edits (bbox, layer styles, filters) directly in `public/`, which must stay hand-authored-input-only — no `url` fields, no `layers/*.geojson`, no `catalog.head*.json` (see `CLAUDE.md`'s Hard Architecture Rules in geo-places). But per the documented "First launch" behavior above, if `--in` has no head file, designer mode pulls real acquired artifacts (`url` fields, `layers/*.geojson`, `catalog.head*.json`) straight into `--in`. Traced through `designer/host.py`'s `launch()`: the pull origin is derived from `designUrl`'s own origin, not a separate data-source setting, and `_pull()` writes everything — including `catalogUrl` — verbatim to `--in`.
 
 This has real consequences for geo-places specifically:
