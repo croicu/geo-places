@@ -14,6 +14,7 @@ geo-builder <tasks_path> [--in <dir>] [--out <dir>] [--edit]
 | `--in <dir>` | required in build mode; `./in` in designer mode | Working directory for service artifacts. Auto-created if absent. |
 | `--out <dir>` | `./out` | Output directory for built artifacts. |
 | `--edit` | off | Open the designer WebView instead of running a build. |
+| `--noninvasive` | off | Skip the first-launch pull into `--in` when `--in` already has content. Designer mode only. |
 
 ## Modes
 
@@ -48,8 +49,9 @@ Opens the geo-browser WebView. Requires `designUrl` in `settings.json`.
 6. Window geometry (position and size) is saved to `settings.local.json` on close and restored on the next launch.
 
 ```bash
-geo-builder template.json --edit                           # designer with defaults
-geo-builder template.json --in ./in --out ./out --edit     # designer with explicit paths
+geo-builder template.json --edit                                        # designer with defaults
+geo-builder template.json --in ./in --out ./out --edit                  # designer with explicit paths
+geo-builder template.json --in public --out dist --edit --noninvasive   # skip pull; keep --in clean
 ```
 
 ## Configuration files
@@ -172,8 +174,6 @@ geo-builder areas/<area>/manifest.json --in build/.scratch --out areas/<area>
 
 ### New request: `--noninvasive` flag for designer mode
 
-**Status: resolved in geo-builder `main`** (2026-07-10) — `--edit --noninvasive` skips the first-launch pull into `--in` as requested below. Not yet in a tagged release: `build.sh`/`build.cmd` pin CI/CD's `geo-builder` install via `GEO_BUILDER_REF` to a tag for reproducibility (see CLAUDE.md), so that path won't pick this up until a new tag is cut. Local designer sessions launched via `.vscode/launch.json`'s "geo-build (Edit)" config run straight against the sibling `geo-builder` checkout's venv (no version pin), so they already get it — that config now passes `--noninvasive`. `scripts/clean_public.py` stays in place as defense-in-depth (also cleans up automatically if `--noninvasive` is ever forgotten on a given run) and because it's still needed for direct CLI invocations against a tagged release.
-
 **Problem.** geo-places uses designer mode (`--edit --in public/`) to make structural catalog/manifest edits (bbox, layer styles, filters) directly in `public/`, which must stay hand-authored-input-only — no `url` fields, no `layers/*.geojson`, no `catalog.head*.json` (see `CLAUDE.md`'s Hard Architecture Rules in geo-places). But per the documented "First launch" behavior above, if `--in` has no head file, designer mode pulls real acquired artifacts (`url` fields, `layers/*.geojson`, `catalog.head*.json`) straight into `--in`. Traced through `designer/host.py`'s `launch()`: the pull origin is derived from `designUrl`'s own origin, not a separate data-source setting, and `_pull()` writes everything — including `catalogUrl` — verbatim to `--in`.
 
 This has real consequences for geo-places specifically:
@@ -199,5 +199,5 @@ When `--noninvasive` is passed (only meaningful together with `--edit`):
 - Not requesting a change to default (non-`--noninvasive`) behavior — this needs to be strictly opt-in so nothing about the existing "pull real data for a full interactive preview" workflow changes for other designer-mode use cases.
 
 **Also worth fixing regardless of the flag above** (both are real bugs independent of this feature request):
-1. `pull.py`'s head-file handling should always write a **relative** local `catalogUrl` (e.g. `"./catalog.json"`), never persist whatever absolute URL the service happened to return.
-2. `assetsUrl` in `settings.json` (added speculatively on the geo-places side) is currently **not read anywhere** in `geo-builder` — the pull origin is always derived from `designUrl`'s own origin instead. Either wire up a real separate data-source setting, or document clearly that `designUrl`'s origin is what's actually used, so users don't assume `assetsUrl` does something it doesn't.
+1. **Resolved.** `pull.py`'s head-file handling now normalizes any absolute `catalogUrl` to a relative local path (`"./catalog.json"`) before saving.
+2. **Resolved (by not wiring it up).** `assetsUrl` in `settings.json` is not read for the pull origin — the pull origin is always derived from `designUrl`'s own origin. `assetsUrl` has one job: the `assetsBase` query parameter appended to `designUrl` for the browser's own asset-loading chain (see `MESSAGING.md`). A separate data-source setting for the pull origin was considered and rejected — the browser's `WebResourceRequested` interception resolves by URL path only once `--in` has content (see `data_pipeline.py`), so the pull origin only matters for the very first, empty-`--in` fetch, which should always hit the canonical service at `designUrl`.
