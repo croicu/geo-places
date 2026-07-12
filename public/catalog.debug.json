@@ -3,18 +3,18 @@
   "createdAt": "2026-05-20 02:29:29.216307+00:00",
   "areas": [
     {
-      "id": "algarve",
-      "name": "Algarve",
+      "id": "seattle",
+      "name": "Seattle",
       "bbox": [
-        -8.817901611328125,
-        36.98743385368387,
-        -7.587432861328125,
-        37.31026312729192
+        -122.37398154560773,
+        47.5626767637491,
+        -122.27828315827767,
+        47.650491701445986
       ],
       "minRadiusPx": 32,
       "maxRadiusPx": 512,
       "liveMapRadiusPx": 640,
-      "manifestUrl": "./areas/algarve/manifest.json"
+      "manifestUrl": "./areas/seattle/manifest.json"
     }
   ]
 }
