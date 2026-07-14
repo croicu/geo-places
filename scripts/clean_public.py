@@ -16,6 +16,12 @@ Hard Architecture Rules). Left in place, this breaks two things:
      quirk — it would very likely break catalog loading entirely on the Linux
      runners cd.yaml actually deploys from.
 
+The same pull also carries over VoidWorker's per-source-layer "__void__{id}__"
+variants (see geo-builder's src/geo_builder/workers/void.py) — these are always
+discarded and rebuilt from scratch on every run from whatever "heatmap"/"circle"
+layers exist, never read back from the input manifest. Only the bare "__void__"
+layer is real hand-authored input (style + optional geometry.radius override).
+
 Run this after any designer session, before committing or building:
     python scripts/clean_public.py
 build.sh / build.cmd also run this automatically before every build, so a
@@ -31,20 +37,30 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PUBLIC_DIR = REPO_ROOT / "public"
+_VOID_TYPE = "__void__"
+_VOID_BARE_ID = "__void__"
 
 
 def clean_manifest(manifest_path: Path) -> bool:
-    """Strip "url" from data layers in one manifest. Returns True if it changed anything."""
+    """Strip "url" from every layer and drop generated void variants. Returns True if changed."""
     with manifest_path.open("r", encoding="utf-8") as f:
         payload = json.load(f)
 
-    changed = False
-    for layer in payload.get("layers", []):
-        if isinstance(layer, dict) and "acquisition" in layer and "url" in layer:
+    layers = payload.get("layers", [])
+    kept_layers = [
+        layer
+        for layer in layers
+        if not (isinstance(layer, dict) and layer.get("type") == _VOID_TYPE and layer.get("id") != _VOID_BARE_ID)
+    ]
+
+    changed = len(kept_layers) != len(layers)
+    for layer in kept_layers:
+        if isinstance(layer, dict) and "url" in layer:
             del layer["url"]
             changed = True
 
     if changed:
+        payload["layers"] = kept_layers
         with manifest_path.open("w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)
             f.write("\n")
@@ -65,10 +81,11 @@ def main() -> int:
         if clean_manifest(manifest_path):
             changed_manifests.append(manifest_path)
 
-        layers_dir = manifest_path.parent / "layers"
-        if layers_dir.exists():
-            shutil.rmtree(layers_dir)
-            removed_layers_dirs.append(layers_dir)
+        for generated_dir_name in ("layers", "void"):
+            generated_dir = manifest_path.parent / generated_dir_name
+            if generated_dir.exists():
+                shutil.rmtree(generated_dir)
+                removed_layers_dirs.append(generated_dir)
 
         for csv_path in manifest_path.parent.glob("*.csv"):
             csv_path.unlink()

@@ -1,8 +1,16 @@
 {
   "settings": {
+    "logLevel": "info",
+    "prod": {
+      "designUrl": "https://geo-browser.croicu.com/?design=1",
+      "assetsUrl": "https://geo-places.croicu.com/"
+    },
+    "local": {
+      "designUrl": "http://localhost:5173/?design=1",
+      "assetsUrl": "http://localhost:5174/"
+    },
     "designUrl": "http://localhost:5173/?design=1",
-    "assetsUrl": "http://localhost:5174/",
-    "logLevel": "info"
+    "assetsUrl": "http://localhost:5174/"
   },
   "providers": {
     "overpass": {
