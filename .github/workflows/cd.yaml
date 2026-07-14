@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      areas:
+        description: "Comma-separated area ids to force-rebuild, or 'all'. Empty = auto-diff against the live site."
+        required: false
+        default: ""
 
 jobs:
   deploy:
@@ -17,7 +23,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Build all areas
+      - name: Build changed area(s)
+        env:
+          GEO_PLACES_INCREMENTAL: "1"
+          GEO_PLACES_REBUILD_AREAS: ${{ github.event.inputs.areas }}
         run: bash build.sh
 
       - uses: cloudflare/wrangler-action@v3

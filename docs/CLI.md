@@ -3,7 +3,7 @@
 ## Synopsis
 
 ```text
-geo-builder <tasks_path> [--in <dir>] [--out <dir>] [--edit]
+geo-builder <tasks_path> [--in <dir>] [--out <dir>] [--edit] [--rebuild <id>]
 ```
 
 ## Arguments
@@ -15,6 +15,7 @@ geo-builder <tasks_path> [--in <dir>] [--out <dir>] [--edit]
 | `--out <dir>` | `./out` | Output directory for built artifacts. |
 | `--edit` | off | Open the designer WebView instead of running a build. |
 | `--noninvasive` | off | Skip the first-launch pull into `--in` when `--in` already has content. Designer mode only. |
+| `--rebuild <id>` | off (implicit data-presence behavior) | Force re-acquisition of this area id regardless of existing `--in` data. Repeatable. Build mode only — errors if combined with `--edit`. Special value `all` forces every loaded area; cannot be combined with other ids. |
 
 ## Modes
 
@@ -33,6 +34,28 @@ Runs the processing pipeline and writes artifacts to `--out`.
 geo-builder template.json --in ./in               # scratch build to ./out
 geo-builder template.json --in ./in --out ./out   # incremental build with explicit out
 ```
+
+### Selective acquisition (`--rebuild`)
+
+By default, an incremental build's acquisition-task generation is implicit: an area is skipped if
+any of its non-`__poi__`/`__void__` layers already has `geojson` loaded in `--in`, and re-acquired
+otherwise. `--rebuild` makes this explicit and overridable:
+
+```bash
+geo-builder template.json --in ./in --rebuild prague --rebuild berlin   # force these two areas only
+geo-builder template.json --in ./in --rebuild all                      # force every loaded area
+```
+
+- Every area passed to `--rebuild` is re-acquired regardless of whether `--in` already has data for
+  it.
+- Every other loaded area is **never** acquired, even if its manifest lacks data — the implicit
+  "no data → acquire" fallback does not apply to areas outside `--rebuild` when the flag is present.
+- An id in `--rebuild` that doesn't match any loaded area, or a loaded area with no data that isn't
+  listed in `--rebuild` (and `all` isn't used), is an exit-1 error rather than a silent skip.
+- `all` cannot be combined with other ids in the same invocation (exit-1 error).
+- Fixed-tail tasks (aggregation/deduping/poi/void/search) are unaffected — they still run whenever
+  at least one acquisition task exists anywhere in the catalog.
+- Omitting `--rebuild` entirely preserves today's implicit behavior exactly.
 
 ### Designer mode (`--edit`)
 
@@ -201,3 +224,7 @@ When `--noninvasive` is passed (only meaningful together with `--edit`):
 **Also worth fixing regardless of the flag above** (both are real bugs independent of this feature request):
 1. **Resolved.** `pull.py`'s head-file handling now normalizes any absolute `catalogUrl` to a relative local path (`"./catalog.json"`) before saving.
 2. **Resolved (by not wiring it up).** `assetsUrl` in `settings.json` is not read for the pull origin — the pull origin is always derived from `designUrl`'s own origin. `assetsUrl` has one job: the `assetsBase` query parameter appended to `designUrl` for the browser's own asset-loading chain (see `MESSAGING.md`). A separate data-source setting for the pull origin was considered and rejected — the browser's `WebResourceRequested` interception resolves by URL path only once `--in` has content (see `data_pipeline.py`), so the pull origin only matters for the very first, empty-`--in` fetch, which should always hit the canonical service at `designUrl`.
+
+### Resolved: `--rebuild <id>` flag for selective acquisition in build mode
+
+Requested to support geo-places' incremental-publish work (see geo-places' `tasks/incremental_publish.md` and GH issue #6 on deploy scaling). Implemented as **repeated** `--rebuild <id>` flags (not comma-separated) plus a reserved `--rebuild all` value — see [Selective acquisition (`--rebuild`)](#selective-acquisition---rebuild) above. Tracked at **[geo-builder#32](https://github.com/croicu/geo-builder/issues/32)**.
