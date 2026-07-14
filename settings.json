@@ -14,13 +14,10 @@
   },
   "providers": {
     "overpass": {
-      "prod": {
-        "url": "https://geo-browser.croicu.com/?design=1"
-      },
-      "local": {
-        "dataPath": "tests/data/providers/fake.json"
-      },
       "url": "https://overpass-api.de/api/interpreter"
+    },
+    "fake": {
+      "dataPath": "tests/data/providers/fake.json"
     }
   }
 }
