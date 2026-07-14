@@ -34,6 +34,13 @@
 # ci.yaml points these at ci-fixtures/ (a tiny synthetic area with provider: fake, no
 # network) for routine validation. cd.yaml leaves them unset, using the real public/
 # catalog against live Overpass.
+#
+# GEO_PLACES_INCREMENTAL (set only by cd.yaml) switches --in from public/ directly to a
+# scratch directory assembled by scripts/prepare_incremental_build.py: areas that haven't
+# changed since the last deploy are seeded from the live production site (already-acquired,
+# so geo-builder's --rebuild skips them); only changed areas come from public/ raw. See
+# tasks/incremental_publish.md for the full design. Unset (ci.yaml, any plain local run):
+# behaves exactly as before this feature existed — no script, no network, --in = public/.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -88,12 +95,48 @@ if [ ! -f "$TASKS_PATH" ]; then
   exit 1
 fi
 
+BUILD_IN="$CATALOG_DIR"
+REBUILD_ARGS=()
+STATE_OUT=""
+
+if [ "${GEO_PLACES_INCREMENTAL:-}" = "1" ]; then
+  SCRATCH_DIR="$(mktemp -d)"
+  STATE_OUT="$(mktemp)"
+  REBUILD_OUT="$(mktemp)"
+  trap 'rm -rf "$SCRATCH_DIR" "$STATE_OUT" "$REBUILD_OUT"' EXIT
+
+  PREPARE_ARGS=(
+    --public-dir "$CATALOG_DIR"
+    --template-path "$TASKS_PATH"
+    --settings-path "$REPO_ROOT/settings.json"
+    --scratch-dir "$SCRATCH_DIR"
+    --state-out "$STATE_OUT"
+    --rebuild-out "$REBUILD_OUT"
+    --production-url "${GEO_PLACES_PRODUCTION_URL:-https://geo-places.croicu.com}"
+  )
+  if [ -n "${GEO_PLACES_REBUILD_AREAS:-}" ]; then
+    PREPARE_ARGS+=(--areas "$GEO_PLACES_REBUILD_AREAS")
+  fi
+
+  echo "Assembling incremental --in from ${GEO_PLACES_PRODUCTION_URL:-https://geo-places.croicu.com}"
+  "$PYTHON" "$REPO_ROOT/scripts/prepare_incremental_build.py" "${PREPARE_ARGS[@]}"
+
+  BUILD_IN="$SCRATCH_DIR"
+  while IFS= read -r area_id; do
+    [ -n "$area_id" ] && REBUILD_ARGS+=(--rebuild "$area_id")
+  done < "$REBUILD_OUT"
+fi
+
 echo "Building catalog (tasks_path=${TASKS_PATH})"
-"$PYTHON" -m geo_builder.cli "$TASKS_PATH" --in "$CATALOG_DIR" --out "$DEPLOY_OUT"
+"$PYTHON" -m geo_builder.cli "$TASKS_PATH" --in "$BUILD_IN" --out "$DEPLOY_OUT" "${REBUILD_ARGS[@]}"
 
 # Ensure both catalog files are present regardless of which one this run resolved to.
 cp "$CATALOG_DIR/catalog.json" "$DEPLOY_OUT/catalog.json"
 cp "$CATALOG_DIR/catalog.debug.json" "$DEPLOY_OUT/catalog.debug.json"
+
+if [ -n "$STATE_OUT" ]; then
+  cp "$STATE_OUT" "$DEPLOY_OUT/build-state.json"
+fi
 
 # Strip geo-builder's own head files and per-area CSVs — not part of the deploy contract.
 rm -f "$DEPLOY_OUT/catalog.head.json" "$DEPLOY_OUT/catalog.head.debug.json"
