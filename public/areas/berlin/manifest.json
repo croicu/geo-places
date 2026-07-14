@@ -138,16 +138,6 @@
       }
     },
     {
-      "id": "__void__",
-      "name": "Mundane",
-      "type": "__void__",
-      "visible": false,
-      "style": {
-        "opacity": 0.3,
-        "color": "#3f3f3f"
-      }
-    },
-    {
       "id": "__poi__",
       "name": "Points of Interest",
       "type": "__poi__",
@@ -158,6 +148,19 @@
         "color": "#7f0000",
         "radius": 8,
         "minZoom": 16
+      }
+    },
+    {
+      "id": "__void__",
+      "name": "Mundane",
+      "type": "__void__",
+      "visible": false,
+      "style": {
+        "opacity": 0.5,
+        "color": "#3f3f3f"
+      },
+      "geometry": {
+        "radius": 200.0
       }
     }
   ],

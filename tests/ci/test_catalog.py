@@ -137,12 +137,11 @@ def test_manifest_layers_have_required_keys(manifest_payload: dict) -> None:
 
 def test_manifest_layers_have_no_premature_url(manifest_payload: dict) -> None:
     for layer in manifest_payload["layers"]:
-        if "acquisition" in layer:
-            assert "url" not in layer, (
-                f"layer {layer.get('id')!r} has both 'acquisition' and 'url' — 'url' must not be "
-                "pre-populated, geo-builder adds it once the file actually exists "
-                "(see CLAUDE.md Hard Architecture Rules)"
-            )
+        assert "url" not in layer, (
+            f"layer {layer.get('id')!r} has a 'url' — 'url' must not be pre-populated on any "
+            "hand-authored layer, geo-builder adds it once the file actually exists "
+            "(see CLAUDE.md Hard Architecture Rules)"
+        )
 
 
 def test_manifest_aggregation_and_deduping_are_objects(manifest_payload: dict) -> None:

@@ -3,18 +3,18 @@
   "createdAt": "2026-05-20 02:29:29.216307+00:00",
   "areas": [
     {
-      "id": "seattle",
-      "name": "Seattle",
+      "id": "redmond",
+      "name": "Redmond",
       "bbox": [
-        -122.37398154560773,
-        47.5626767637491,
-        -122.27828315827767,
-        47.650491701445986
+        -122.13605693021879,
+        47.66217960157401,
+        -122.1018366781566,
+        47.68128567896151
       ],
       "minRadiusPx": 32,
       "maxRadiusPx": 512,
       "liveMapRadiusPx": 640,
-      "manifestUrl": "./areas/seattle/manifest.json"
+      "manifestUrl": "./areas/redmond/manifest.json"
     }
   ]
 }
