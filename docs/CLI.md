@@ -228,3 +228,7 @@ When `--noninvasive` is passed (only meaningful together with `--edit`):
 ### Resolved: `--rebuild <id>` flag for selective acquisition in build mode
 
 Requested to support geo-places' incremental-publish work (see geo-places' `tasks/incremental_publish.md` and GH issue #6 on deploy scaling). Implemented as **repeated** `--rebuild <id>` flags (not comma-separated) plus a reserved `--rebuild all` value — see [Selective acquisition (`--rebuild`)](#selective-acquisition---rebuild) above. Tracked at **[geo-builder#32](https://github.com/croicu/geo-builder/issues/32)**.
+
+### New request: any catalog save round-trips every area's `group: []`
+
+`save_catalog`/`save_catalog_meta` serialize each area via `asdict(geo_area.summary)`, which unconditionally emits `"group": []` for every area (since `Area.group` is a plain dataclass field with a default) — even areas that never had `group` set. A single-area bbox edit through the designer therefore rewrites *every* area's catalog entry, not just the edited one. Breaks content-based diffing for any consumer (e.g. geo-places' `scripts/prepare_incremental_build.py`, which fingerprints catalog entries to decide what needs re-acquisition). Worked around locally in `scripts/clean_public.py` (strips empty `group` back to omitted) — not urgent, no live bug, but worth fixing at the source. Tracked at **[geo-builder#35](https://github.com/croicu/geo-builder/issues/35)**.

@@ -22,6 +22,16 @@ discarded and rebuilt from scratch on every run from whatever "heatmap"/"circle"
 layers exist, never read back from the input manifest. Only the bare "__void__"
 layer is real hand-authored input (style + optional geometry.radius override).
 
+Any designer save (even editing a single area's bbox) also round-trips every
+OTHER area's catalog.json entry through geo-builder's Area dataclass, which
+unconditionally serializes "group": [] for areas that never had a group set
+(dataclasses.asdict() always emits every field). "Omitted" and "[]" mean the
+same thing (ungrouped, see tasks/area_grouping.md), but the spurious diff on
+unrelated areas is a real problem for scripts/prepare_incremental_build.py's
+content-hash fingerprinting — it would misclassify every untouched area as
+changed. Strip empty "group" arrays back to omitted so an edit to one area
+doesn't bump every other area's fingerprint.
+
 Run this after any designer session, before committing or building:
     python scripts/clean_public.py
 build.sh / build.cmd also run this automatically before every build, so a
@@ -68,18 +78,41 @@ def clean_manifest(manifest_path: Path) -> bool:
     return changed
 
 
+def clean_catalog(catalog_path: Path) -> bool:
+    """Strip empty "group": [] back to omitted on every area. Returns True if changed."""
+    with catalog_path.open("r", encoding="utf-8") as f:
+        payload = json.load(f)
+
+    changed = False
+    for area in payload.get("areas", []):
+        if isinstance(area, dict) and area.get("group") == []:
+            del area["group"]
+            changed = True
+
+    if changed:
+        with catalog_path.open("w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2)
+            f.write("\n")
+
+    return changed
+
+
 def main() -> int:
     if not PUBLIC_DIR.exists():
         print(f"clean_public.py: {PUBLIC_DIR} not found, nothing to do")
         return 0
 
-    changed_manifests: list[Path] = []
+    changed_files: list[Path] = []
     removed_layers_dirs: list[Path] = []
     removed_files: list[Path] = []
 
+    catalog_path = PUBLIC_DIR / "catalog.json"
+    if catalog_path.exists() and clean_catalog(catalog_path):
+        changed_files.append(catalog_path)
+
     for manifest_path in sorted(PUBLIC_DIR.glob("areas/*/manifest.json")):
         if clean_manifest(manifest_path):
-            changed_manifests.append(manifest_path)
+            changed_files.append(manifest_path)
 
         for generated_dir_name in ("layers", "void"):
             generated_dir = manifest_path.parent / generated_dir_name
@@ -96,12 +129,12 @@ def main() -> int:
         head_path.unlink()
         removed_files.append(head_path)
 
-    if not (changed_manifests or removed_layers_dirs or removed_files):
+    if not (changed_files or removed_layers_dirs or removed_files):
         print("clean_public.py: public/ already clean")
         return 0
 
-    for p in changed_manifests:
-        print(f"clean_public.py: stripped 'url' fields from {p.relative_to(REPO_ROOT)}")
+    for p in changed_files:
+        print(f"clean_public.py: cleaned {p.relative_to(REPO_ROOT)}")
     for p in removed_layers_dirs:
         print(f"clean_public.py: removed {p.relative_to(REPO_ROOT)}")
     for p in removed_files:

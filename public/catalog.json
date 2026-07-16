@@ -76,16 +76,18 @@
       "id": "redmond",
       "name": "Redmond",
       "bbox": [
-        -122.13605693021879,
-        47.66217960157401,
-        -122.1018366781566,
-        47.68128567896151
+        -122.15,
+        47.62942711367591,
+        -122.06892557063084,
+        47.730192146059245
       ],
       "minRadiusPx": 32,
       "maxRadiusPx": 512,
       "liveMapRadiusPx": 640,
       "manifestUrl": "./areas/redmond/manifest.json",
-      "group": ["debug"]
+      "group": [
+        "debug"
+      ]
     }
   ]
 }
