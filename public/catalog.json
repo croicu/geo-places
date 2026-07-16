@@ -71,6 +71,21 @@
       "maxRadiusPx": 512,
       "liveMapRadiusPx": 640,
       "manifestUrl": "./areas/seattle/manifest.json"
+    },
+    {
+      "id": "redmond",
+      "name": "Redmond",
+      "bbox": [
+        -122.13605693021879,
+        47.66217960157401,
+        -122.1018366781566,
+        47.68128567896151
+      ],
+      "minRadiusPx": 32,
+      "maxRadiusPx": 512,
+      "liveMapRadiusPx": 640,
+      "manifestUrl": "./areas/redmond/manifest.json",
+      "group": ["debug"]
     }
   ]
 }
