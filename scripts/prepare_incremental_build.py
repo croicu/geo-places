@@ -47,7 +47,11 @@ class PrepareError(Exception):
 
 
 def fetch_url(url: str) -> bytes:
-    with urllib.request.urlopen(url, timeout=30) as response:
+    # Cloudflare blocks urllib's default User-Agent outright (403, before even checking
+    # whether the resource exists) — a real one is required to get an honest 404 on a
+    # missing file instead of a misleading 403.
+    request = urllib.request.Request(url, headers={"User-Agent": "geo-places-incremental-build/1.0"})
+    with urllib.request.urlopen(request, timeout=30) as response:
         return response.read()
 
 
