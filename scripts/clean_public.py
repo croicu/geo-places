@@ -91,11 +91,10 @@ def main() -> int:
             csv_path.unlink()
             removed_files.append(csv_path)
 
-    for head_name in ("catalog.head.json", "catalog.head.debug.json"):
-        head_path = PUBLIC_DIR / head_name
-        if head_path.exists():
-            head_path.unlink()
-            removed_files.append(head_path)
+    head_path = PUBLIC_DIR / "catalog.head.json"
+    if head_path.exists():
+        head_path.unlink()
+        removed_files.append(head_path)
 
     if not (changed_manifests or removed_layers_dirs or removed_files):
         print("clean_public.py: public/ already clean")

@@ -14,7 +14,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 PUBLIC_DIR = REPO_ROOT / "public"
-CATALOG_FILENAMES = ["catalog.json", "catalog.debug.json"]
+CATALOG_PATH = PUBLIC_DIR / "catalog.json"
 
 
 def _load_json(path: Path) -> object:
@@ -26,51 +26,38 @@ def _areas(catalog_payload: dict) -> list[dict]:
     return catalog_payload["areas"]
 
 
-def _manifest_path(catalog_path: Path, manifest_url: str) -> Path:
-    return (catalog_path.parent / manifest_url.removeprefix("./")).resolve()
+def _manifest_path(manifest_url: str) -> Path:
+    return (CATALOG_PATH.parent / manifest_url.removeprefix("./")).resolve()
 
 
-def _catalog_area_pairs() -> list[tuple[Path, dict]]:
-    """One (catalog_path, area) pair per area across every catalog file, for parametrization."""
-    pairs: list[tuple[Path, dict]] = []
-    for filename in CATALOG_FILENAMES:
-        catalog_path = PUBLIC_DIR / filename
-        if not catalog_path.exists():
-            continue
-        payload = _load_json(catalog_path)
-        if not isinstance(payload, dict):
-            continue
-        for area in payload.get("areas", []):
-            if isinstance(area, dict):
-                pairs.append((catalog_path, area))
-    return pairs
+def _catalog_areas() -> list[dict]:
+    if not CATALOG_PATH.exists():
+        return []
+    payload = _load_json(CATALOG_PATH)
+    if not isinstance(payload, dict):
+        return []
+    return [area for area in payload.get("areas", []) if isinstance(area, dict)]
 
 
 def _area_manifest_paths() -> list[Path]:
-    """One path per unique area manifest referenced by any catalog file."""
+    """One path per unique area manifest referenced by the catalog."""
     paths: list[Path] = []
-    for catalog_path, area in _catalog_area_pairs():
+    for area in _catalog_areas():
         manifest_url = area.get("manifestUrl")
         if not isinstance(manifest_url, str):
             continue
-        manifest_path = _manifest_path(catalog_path, manifest_url)
+        manifest_path = _manifest_path(manifest_url)
         if manifest_path not in paths:
             paths.append(manifest_path)
     return paths
 
 
-@pytest.fixture(params=CATALOG_FILENAMES)
-def catalog_path(request: pytest.FixtureRequest) -> Path:
-    path = PUBLIC_DIR / request.param
-    if not path.exists():
-        pytest.fail(f"{path.relative_to(REPO_ROOT)} not found")
-    return path
-
-
 @pytest.fixture
-def catalog_payload(catalog_path: Path) -> dict:
-    payload = _load_json(catalog_path)
-    assert isinstance(payload, dict), f"{catalog_path.relative_to(REPO_ROOT)} must contain a JSON object"
+def catalog_payload() -> dict:
+    if not CATALOG_PATH.exists():
+        pytest.fail(f"{CATALOG_PATH.relative_to(REPO_ROOT)} not found")
+    payload = _load_json(CATALOG_PATH)
+    assert isinstance(payload, dict), f"{CATALOG_PATH.relative_to(REPO_ROOT)} must contain a JSON object"
     return payload
 
 
@@ -85,8 +72,8 @@ def test_area_ids_are_unique(catalog_payload: dict) -> None:
     assert len(ids) == len(set(ids)), f"duplicate area ids: {ids}"
 
 
-@pytest.mark.parametrize("catalog_path,area", _catalog_area_pairs(), ids=lambda v: v if isinstance(v, str) else getattr(v, "get", lambda *_: None)("id"))
-def test_area_has_required_fields(catalog_path: Path, area: dict) -> None:
+@pytest.mark.parametrize("area", _catalog_areas(), ids=lambda a: a.get("id"))
+def test_area_has_required_fields(area: dict) -> None:
     area_id = area.get("id")
     assert isinstance(area_id, str) and area_id, "'id' must be a non-empty string"
     assert isinstance(area.get("name"), str) and area.get("name"), f"{area_id}: 'name' must be a non-empty string"
@@ -94,8 +81,8 @@ def test_area_has_required_fields(catalog_path: Path, area: dict) -> None:
         assert isinstance(area.get(key), (int, float)), f"{area_id}: '{key}' must be a number"
 
 
-@pytest.mark.parametrize("catalog_path,area", _catalog_area_pairs(), ids=lambda v: v if isinstance(v, str) else getattr(v, "get", lambda *_: None)("id"))
-def test_area_bbox_shape(catalog_path: Path, area: dict) -> None:
+@pytest.mark.parametrize("area", _catalog_areas(), ids=lambda a: a.get("id"))
+def test_area_bbox_shape(area: dict) -> None:
     area_id = area.get("id")
     bbox = area.get("bbox")
     assert isinstance(bbox, list) and len(bbox) == 4, f"{area_id}: 'bbox' must be an array of 4 numbers"
@@ -105,13 +92,22 @@ def test_area_bbox_shape(catalog_path: Path, area: dict) -> None:
     assert south < north, f"{area_id}: bbox south ({south}) must be < north ({north})"
 
 
-@pytest.mark.parametrize("catalog_path,area", _catalog_area_pairs(), ids=lambda v: v if isinstance(v, str) else getattr(v, "get", lambda *_: None)("id"))
-def test_area_manifest_url_resolves(catalog_path: Path, area: dict) -> None:
+@pytest.mark.parametrize("area", _catalog_areas(), ids=lambda a: a.get("id"))
+def test_area_manifest_url_resolves(area: dict) -> None:
     area_id = area.get("id")
     manifest_url = area.get("manifestUrl")
     assert isinstance(manifest_url, str) and manifest_url, f"{area_id}: 'manifestUrl' must be a non-empty string"
-    manifest_path = _manifest_path(catalog_path, manifest_url)
-    assert manifest_path.exists(), f"{area_id}: manifestUrl '{manifest_url}' does not resolve to an existing file"
+    assert _manifest_path(manifest_url).exists(), f"{area_id}: manifestUrl '{manifest_url}' does not resolve to an existing file"
+
+
+@pytest.mark.parametrize("area", _catalog_areas(), ids=lambda a: a.get("id"))
+def test_area_group_shape(area: dict) -> None:
+    area_id = area.get("id")
+    if "group" not in area:
+        return
+    group = area["group"]
+    assert isinstance(group, list), f"{area_id}: 'group' must be an array if present"
+    assert all(isinstance(g, str) and g for g in group), f"{area_id}: 'group' entries must be non-empty strings"
 
 
 @pytest.fixture(params=_area_manifest_paths(), ids=lambda p: p.parent.name)

@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Assemble a scratch --in directory for an incremental geo-builder build.
 
-Seeds every ship-catalog area that hasn't changed with its previously-deployed,
+Seeds every catalog area that hasn't changed with its previously-deployed,
 already-acquired manifest + geojson (fetched straight from the live production
 site), and every area that HAS changed with its raw hand-authored public/
 manifest — so a subsequent `geo-builder ... --rebuild <changed ids>` only hits
 Overpass for the areas that actually need it. See tasks/incremental_publish.md
-for the full design.
+for the full design. There is a single public/catalog.json (no more debug
+catalog — see tasks/area_grouping.md); a "debug" area is just an ordinary
+catalog entry tagged with a "group", built and deployed like everything else.
 
 "Changed" is decided by comparing a per-area fingerprint (git blob hash of the
 manifest + a hash of that area's own public/catalog.json entry, since bbox
@@ -37,7 +39,6 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 _REBUILD_ALL = "all"
-_CATALOG_KEY = "catalog.json"
 _GLOBAL_KEY = "_global"
 
 
@@ -174,7 +175,6 @@ def assemble_scratch(
 ) -> None:
     scratch_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(public_dir / "catalog.json", scratch_dir / "catalog.json")
-    shutil.copy2(public_dir / "catalog.debug.json", scratch_dir / "catalog.debug.json")
 
     for area in catalog.get("areas", []):
         area_id = area["id"]
@@ -213,16 +213,14 @@ def main(argv: list[str]) -> int:
         catalog_ids = [area["id"] for area in catalog.get("areas", [])]
 
         current = compute_current_fingerprints(catalog, args.public_dir, args.template_path, args.settings_path)
-        baseline_state = fetch_previous_state(args.production_url)
-        baseline = baseline_state.get(_CATALOG_KEY, {})
+        baseline = fetch_previous_state(args.production_url)
 
         rebuild_list = resolve_rebuild_set(explicit_areas, current, baseline, catalog_ids)
         rebuild_set = set(rebuild_list)
 
         assemble_scratch(catalog, args.public_dir, args.scratch_dir, args.production_url, rebuild_set)
 
-        new_state = dict(baseline_state)
-        new_state[_CATALOG_KEY] = current
+        new_state = current
         args.state_out.parent.mkdir(parents=True, exist_ok=True)
         with args.state_out.open("w", encoding="utf-8", newline="\n") as f:
             json.dump(new_state, f, indent=2)

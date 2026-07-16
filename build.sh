@@ -4,24 +4,27 @@
 # nothing here is ever committed). Run from anywhere; paths are resolved relative to
 # this script's location.
 #
-# public/ is hand-authored input ONLY: public/catalog.json + public/catalog.debug.json
-# (id/name/bbox per area) + public/areas/<id>/manifest.json (layer/acquisition defs, no
-# "url" field yet). Never generated into — this script runs scripts/clean_public.py
-# before every build to guarantee it (see that script's docstring for why: designer
-# mode pollutes public/ with real url/geojson/head-file data on first launch). geo-builder
-# reads the *whole* catalog from --in in one call and acquires data for every area that
-# needs it — there is no per-area loop. tasks_path is only used for __poi__/__void__
-# style lookup, so it points at the shared template.json at repo root rather than any
-# one area's manifest.
+# public/ is hand-authored input ONLY: public/catalog.json (id/name/bbox/optional group
+# per area) + public/areas/<id>/manifest.json (layer/acquisition defs, no "url" field yet).
+# Never generated into — this script runs scripts/clean_public.py before every build to
+# guarantee it (see that script's docstring for why: designer mode pollutes public/ with
+# real url/geojson/head-file data on first launch). geo-builder reads the *whole* catalog
+# from --in in one call and acquires data for every area that needs it — there is no
+# per-area loop. tasks_path is only used for __poi__/__void__ style lookup, so it points
+# at the shared template.json at repo root rather than any one area's manifest.
 #
-# geo-builder writes its own native shape directly to out/ (--out out/): catalog.head*.json,
-# catalog.json OR catalog.debug.json (whichever the active debug flag resolves to — never
-# both in one run), and per area: areas/<id>/manifest.json (now with "url" populated),
-# areas/<id>/<id>.csv, areas/<id>/layers/*.geojson. This script then: (1) copies both
-# catalog.json and catalog.debug.json from public/ into out/ so both are always present
-# regardless of which one this run actually used, and (2) strips geo-builder's
-# catalog.head*.json and per-area .csv files, which aren't part of the deploy contract.
-# out/ is gitignored and rebuilt fresh every run — nothing under it is ever committed.
+# There is one catalog, period — geo-builder dropped the debug-catalog-file concept
+# entirely (see tasks/area_grouping.md, geo-builder commit f9ff202): a per-area "group"
+# field (e.g. ["debug"]) is now how areas like redmond are tagged, filtered client-side by
+# geo-browser, not by building a different catalog file. Every area in public/catalog.json
+# ships and is always built here, regardless of group.
+#
+# geo-builder writes its own native shape directly to out/ (--out out/): catalog.head.json,
+# catalog.json, and per area: areas/<id>/manifest.json (now with "url" populated),
+# areas/<id>/<id>.csv, areas/<id>/layers/*.geojson. This script then: (1) copies
+# catalog.json from public/ into out/, and (2) strips geo-builder's catalog.head.json and
+# per-area .csv files, which aren't part of the deploy contract. out/ is gitignored and
+# rebuilt fresh every run — nothing under it is ever committed.
 #
 # geo-builder loads settings.json/settings.local.json from the CWD — this script cd's to
 # REPO_ROOT before invoking it so those are picked up. This repo's build/ directory is
@@ -85,11 +88,6 @@ if [ ! -f "$CATALOG_DIR/catalog.json" ]; then
   exit 1
 fi
 
-if [ ! -f "$CATALOG_DIR/catalog.debug.json" ]; then
-  echo "No debug catalog found at ${CATALOG_DIR}/catalog.debug.json" >&2
-  exit 1
-fi
-
 if [ ! -f "$TASKS_PATH" ]; then
   echo "No template found at ${TASKS_PATH}" >&2
   exit 1
@@ -130,16 +128,14 @@ fi
 echo "Building catalog (tasks_path=${TASKS_PATH})"
 "$PYTHON" -m geo_builder.cli "$TASKS_PATH" --in "$BUILD_IN" --out "$DEPLOY_OUT" "${REBUILD_ARGS[@]}"
 
-# Ensure both catalog files are present regardless of which one this run resolved to.
 cp "$CATALOG_DIR/catalog.json" "$DEPLOY_OUT/catalog.json"
-cp "$CATALOG_DIR/catalog.debug.json" "$DEPLOY_OUT/catalog.debug.json"
 
 if [ -n "$STATE_OUT" ]; then
   cp "$STATE_OUT" "$DEPLOY_OUT/build-state.json"
 fi
 
-# Strip geo-builder's own head files and per-area CSVs — not part of the deploy contract.
-rm -f "$DEPLOY_OUT/catalog.head.json" "$DEPLOY_OUT/catalog.head.debug.json"
+# Strip geo-builder's own head file and per-area CSVs — not part of the deploy contract.
+rm -f "$DEPLOY_OUT/catalog.head.json"
 for area_dir in "$DEPLOY_OUT"/areas/*/; do
   [ -d "$area_dir" ] || continue
   id="$(basename "$area_dir")"

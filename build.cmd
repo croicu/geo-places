@@ -3,24 +3,28 @@ setlocal EnableDelayedExpansion
 REM Installs geo-builder and builds the deploy-ready output for every area into out\.
 REM Local Windows equivalent of build.sh (which is what CI actually runs).
 REM
-REM public\ is hand-authored input ONLY: public\catalog.json + public\catalog.debug.json
-REM (id/name/bbox per area) + public\areas\<id>\manifest.json (layer/acquisition defs, no
-REM "url" field yet). Never generated into -- this script runs scripts\clean_public.py
-REM before every build to guarantee it (see that script's docstring for why: designer
-REM mode pollutes public\ with real url/geojson/head-file data on first launch). geo-builder
-REM reads the *whole* catalog from --in in one call and acquires data for every area that
-REM needs it -- there is no per-area loop. tasks_path is only used for __poi__/__void__
-REM style lookup, so it points at the shared template.json at repo root rather than any
-REM one area's manifest.
+REM public\ is hand-authored input ONLY: public\catalog.json (id/name/bbox/optional group
+REM per area) + public\areas\<id>\manifest.json (layer/acquisition defs, no "url" field
+REM yet). Never generated into -- this script runs scripts\clean_public.py before every
+REM build to guarantee it (see that script's docstring for why: designer mode pollutes
+REM public\ with real url/geojson/head-file data on first launch). geo-builder reads the
+REM *whole* catalog from --in in one call and acquires data for every area that needs it
+REM -- there is no per-area loop. tasks_path is only used for __poi__/__void__ style
+REM lookup, so it points at the shared template.json at repo root rather than any one
+REM area's manifest.
 REM
-REM geo-builder writes its own native shape directly to out\ (--out out\): catalog.head*.json,
-REM catalog.json OR catalog.debug.json (whichever the active debug flag resolves to -- never
-REM both in one run), and per area: areas\<id>\manifest.json (now with "url" populated),
-REM areas\<id>\<id>.csv, areas\<id>\layers\*.geojson. This script then: (1) copies both
-REM catalog.json and catalog.debug.json from public\ into out\ so both are always present
-REM regardless of which one this run actually used, and (2) strips geo-builder's
-REM catalog.head*.json and per-area .csv files, which aren't part of the deploy contract.
-REM out\ is gitignored and rebuilt fresh every run -- nothing under it is ever committed.
+REM There is one catalog, period -- geo-builder dropped the debug-catalog-file concept
+REM entirely (see tasks\area_grouping.md, geo-builder commit f9ff202): a per-area "group"
+REM field (e.g. ["debug"]) is now how areas like redmond are tagged, filtered client-side
+REM by geo-browser, not by building a different catalog file. Every area in
+REM public\catalog.json ships and is always built here, regardless of group.
+REM
+REM geo-builder writes its own native shape directly to out\ (--out out\): catalog.head.json,
+REM catalog.json, and per area: areas\<id>\manifest.json (now with "url" populated),
+REM areas\<id>\<id>.csv, areas\<id>\layers\*.geojson. This script then: (1) copies
+REM catalog.json from public\ into out\, and (2) strips geo-builder's catalog.head.json and
+REM per-area .csv files, which aren't part of the deploy contract. out\ is gitignored and
+REM rebuilt fresh every run -- nothing under it is ever committed.
 REM
 REM geo-builder loads settings.json/settings.local.json from the CWD -- this script cd's
 REM to REPO_ROOT before invoking it so those are picked up. This repo's build\ directory
@@ -76,11 +80,6 @@ if not exist "%CATALOG_DIR%\catalog.json" (
     exit /b 1
 )
 
-if not exist "%CATALOG_DIR%\catalog.debug.json" (
-    echo No debug catalog found at %CATALOG_DIR%\catalog.debug.json 1>&2
-    exit /b 1
-)
-
 if not exist "%TASKS_PATH%" (
     echo No template found at %TASKS_PATH% 1>&2
     exit /b 1
@@ -112,7 +111,6 @@ echo Building catalog ^(tasks_path=%TASKS_PATH%^)
 if errorlevel 1 exit /b 1
 
 copy /y "%CATALOG_DIR%\catalog.json" "%DEPLOY_OUT%\catalog.json" >nul
-copy /y "%CATALOG_DIR%\catalog.debug.json" "%DEPLOY_OUT%\catalog.debug.json" >nul
 
 if not "%STATE_OUT%"=="" copy /y "%STATE_OUT%" "%DEPLOY_OUT%\build-state.json" >nul
 if "%GEO_PLACES_INCREMENTAL%"=="1" (
@@ -122,7 +120,6 @@ if "%GEO_PLACES_INCREMENTAL%"=="1" (
 )
 
 if exist "%DEPLOY_OUT%\catalog.head.json" del /q "%DEPLOY_OUT%\catalog.head.json"
-if exist "%DEPLOY_OUT%\catalog.head.debug.json" del /q "%DEPLOY_OUT%\catalog.head.debug.json"
 
 set "PRODUCED=0"
 for /d %%P in ("%DEPLOY_OUT%\areas\*") do (

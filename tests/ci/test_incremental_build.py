@@ -53,7 +53,6 @@ def public_dir(tmp_path: Path) -> Path:
         ],
     }
     _write_json(public / "catalog.json", catalog)
-    _write_json(public / "catalog.debug.json", {"version": "1.0", "areas": []})
     _write_json(public / "areas/prague/manifest.json", {"version": 1, "layers": [], "aggregation": {}, "deduping": {}})
     _write_json(public / "areas/berlin/manifest.json", {"version": 1, "layers": [], "aggregation": {}, "deduping": {}})
     _write_json(tmp_path / "template.json", {"layers": []})

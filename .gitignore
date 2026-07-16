@@ -12,4 +12,3 @@ node_modules/
 public/areas/*/layers/
 public/areas/*/*.csv
 public/catalog.head.json
-public/catalog.head.debug.json
