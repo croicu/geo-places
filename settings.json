@@ -9,8 +9,8 @@
       "designUrl": "http://localhost:5173/?design=1",
       "assetsUrl": "http://localhost:5174/"
     },
-    "designUrl": "http://localhost:5173/?design=1",
-    "assetsUrl": "http://localhost:5174/"
+    "designUrl": "https://geo-browser.croicu.com/?design=1",
+    "assetsUrl": "https://geo-places.croicu.com/"
   },
   "providers": {
     "overpass": {
