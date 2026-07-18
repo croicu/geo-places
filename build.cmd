@@ -93,12 +93,12 @@ if "%GEO_PLACES_INCREMENTAL%"=="1" (
     set "SCRATCH_DIR=%TEMP%\geo-places-scratch-%RANDOM%%RANDOM%"
     set "STATE_OUT=%TEMP%\geo-places-state-%RANDOM%%RANDOM%.json"
     set "REBUILD_OUT=%TEMP%\geo-places-rebuild-%RANDOM%%RANDOM%.txt"
-    if "%GEO_PLACES_PRODUCTION_URL%"=="" (set "PRODUCTION_URL=https://geo-places.croicu.com") else (set "PRODUCTION_URL=%GEO_PLACES_PRODUCTION_URL%")
+    if "%GEO_PLACES_BASELINE_URL%"=="" (set "BASELINE_URL=https://raw.githubusercontent.com/croicu/geo-places-baseline/main") else (set "BASELINE_URL=%GEO_PLACES_BASELINE_URL%")
 
-    set "PREPARE_ARGS=--public-dir "%CATALOG_DIR%" --template-path "%TASKS_PATH%" --settings-path "%REPO_ROOT%\settings.json" --scratch-dir "!SCRATCH_DIR!" --state-out "!STATE_OUT!" --rebuild-out "!REBUILD_OUT!" --production-url "!PRODUCTION_URL!""
+    set "PREPARE_ARGS=--public-dir "%CATALOG_DIR%" --template-path "%TASKS_PATH%" --settings-path "%REPO_ROOT%\settings.json" --scratch-dir "!SCRATCH_DIR!" --state-out "!STATE_OUT!" --rebuild-out "!REBUILD_OUT!" --baseline-url "!BASELINE_URL!""
     if not "%GEO_PLACES_REBUILD_AREAS%"=="" set "PREPARE_ARGS=!PREPARE_ARGS! --areas "%GEO_PLACES_REBUILD_AREAS%""
 
-    echo Assembling incremental --in from !PRODUCTION_URL!
+    echo Assembling incremental --in from !BASELINE_URL!
     "%PYTHON%" "%REPO_ROOT%\scripts\prepare_incremental_build.py" !PREPARE_ARGS!
     if errorlevel 1 exit /b 1
 
