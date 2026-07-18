@@ -2,18 +2,21 @@
 """Assemble a scratch --in directory for an incremental geo-builder build.
 
 Seeds every catalog area that hasn't changed with its previously-deployed,
-already-acquired manifest + geojson (fetched straight from the live production
-site), and every area that HAS changed with its raw hand-authored public/
-manifest — so a subsequent `geo-builder ... --rebuild <changed ids>` only hits
-Overpass for the areas that actually need it. See tasks/incremental_publish.md
-for the full design. There is a single public/catalog.json (no more debug
-catalog — see tasks/area_grouping.md); a "debug" area is just an ordinary
-catalog entry tagged with a "group", built and deployed like everything else.
+already-acquired manifest + geojson (fetched from croicu/geo-places-baseline,
+a separate repo that mirrors out/ after every successful deploy — see
+tasks/baseline-artifact-spec.md), and every area that HAS changed with its raw
+hand-authored public/ manifest — so a subsequent `geo-builder ... --rebuild
+<changed ids>` only hits Overpass for the areas that actually need it. This
+keeps Cloudflare Pages a pure deploy sink: nothing in the pre-deployment build
+phase reads from it. See tasks/incremental_publish.md for the full design.
+There is a single public/catalog.json (no more debug catalog — see
+tasks/area_grouping.md); a "debug" area is just an ordinary catalog entry
+tagged with a "group", built and deployed like everything else.
 
 "Changed" is decided by comparing a per-area fingerprint (git blob hash of the
 manifest + a hash of that area's own public/catalog.json entry, since bbox
 lives there and not in the manifest) against a baseline fingerprint published
-alongside the previous deploy at {production_url}/build-state.json. A missing
+alongside the previous deploy at {baseline_url}/build-state.json. A missing
 baseline (first run, or a fresh site) means every area is treated as changed.
 A change to template.json or settings.json (aggregation/acquisition-adjacent
 shared inputs) forces every area into the rebuild set, since otherwise such a
@@ -22,7 +25,7 @@ change would never propagate anywhere.
 Usage:
     python scripts/prepare_incremental_build.py \
         --public-dir public --scratch-dir <dir> --state-out <path> \
-        --rebuild-out <path> [--areas prague,berlin] [--production-url URL]
+        --rebuild-out <path> [--areas prague,berlin] [--baseline-url URL]
 """
 
 from __future__ import annotations
@@ -47,9 +50,8 @@ class PrepareError(Exception):
 
 
 def fetch_url(url: str) -> bytes:
-    # Cloudflare blocks urllib's default User-Agent outright (403, before even checking
-    # whether the resource exists) — a real one is required to get an honest 404 on a
-    # missing file instead of a misleading 403.
+    # A descriptive User-Agent is good practice for any GitHub-hosted endpoint
+    # (raw.githubusercontent.com included) and costs nothing to keep sending.
     request = urllib.request.Request(url, headers={"User-Agent": "geo-places-incremental-build/1.0"})
     with urllib.request.urlopen(request, timeout=30) as response:
         return response.read()
@@ -106,8 +108,8 @@ def compute_current_fingerprints(catalog: dict, public_dir: Path, template_path:
     return fingerprints
 
 
-def fetch_previous_state(production_url: str) -> dict:
-    url = join_url(production_url, "build-state.json")
+def fetch_previous_state(baseline_url: str) -> dict:
+    url = join_url(baseline_url, "build-state.json")
     try:
         raw = fetch_url(url)
     except urllib.error.HTTPError as error:
@@ -139,8 +141,8 @@ def resolve_rebuild_set(
     return [area_id for area_id in catalog_ids if current.get(area_id) != baseline.get(area_id)]
 
 
-def fetch_area_into(area_id: str, manifest_url: str, production_url: str, dest_manifest: Path) -> None:
-    manifest_remote_url = join_url(production_url, manifest_url)
+def fetch_area_into(area_id: str, manifest_url: str, baseline_url: str, dest_manifest: Path) -> None:
+    manifest_remote_url = join_url(baseline_url, manifest_url)
     try:
         manifest_bytes = fetch_url(manifest_remote_url)
     except (urllib.error.HTTPError, urllib.error.URLError) as error:
@@ -158,7 +160,7 @@ def fetch_area_into(area_id: str, manifest_url: str, production_url: str, dest_m
         layer_url = layer.get("url")
         if not layer_url:
             continue
-        layer_remote_url = join_url(production_url, area_base, layer_url)
+        layer_remote_url = join_url(baseline_url, area_base, layer_url)
         dest_layer = child_path(dest_manifest.parent, layer_url)
         try:
             layer_bytes = fetch_url(layer_remote_url)
@@ -174,7 +176,7 @@ def assemble_scratch(
     catalog: dict,
     public_dir: Path,
     scratch_dir: Path,
-    production_url: str,
+    baseline_url: str,
     rebuild_set: set[str],
 ) -> None:
     scratch_dir.mkdir(parents=True, exist_ok=True)
@@ -189,7 +191,7 @@ def assemble_scratch(
             dest_manifest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(child_path(public_dir, manifest_url), dest_manifest)
         else:
-            fetch_area_into(area_id, manifest_url, production_url, dest_manifest)
+            fetch_area_into(area_id, manifest_url, baseline_url, dest_manifest)
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -200,7 +202,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--scratch-dir", type=Path, required=True)
     parser.add_argument("--state-out", type=Path, required=True)
     parser.add_argument("--rebuild-out", type=Path, required=True)
-    parser.add_argument("--production-url", default="https://geo-places.croicu.com")
+    parser.add_argument("--baseline-url", default="https://raw.githubusercontent.com/croicu/geo-places-baseline/main")
     parser.add_argument("--areas", default=None, help="comma-separated area ids to force-rebuild, or 'all'")
     return parser.parse_args(argv)
 
@@ -217,12 +219,12 @@ def main(argv: list[str]) -> int:
         catalog_ids = [area["id"] for area in catalog.get("areas", [])]
 
         current = compute_current_fingerprints(catalog, args.public_dir, args.template_path, args.settings_path)
-        baseline = fetch_previous_state(args.production_url)
+        baseline = fetch_previous_state(args.baseline_url)
 
         rebuild_list = resolve_rebuild_set(explicit_areas, current, baseline, catalog_ids)
         rebuild_set = set(rebuild_list)
 
-        assemble_scratch(catalog, args.public_dir, args.scratch_dir, args.production_url, rebuild_set)
+        assemble_scratch(catalog, args.public_dir, args.scratch_dir, args.baseline_url, rebuild_set)
 
         new_state = current
         args.state_out.parent.mkdir(parents=True, exist_ok=True)

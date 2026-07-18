@@ -40,10 +40,12 @@
 #
 # GEO_PLACES_INCREMENTAL (set only by cd.yaml) switches --in from public/ directly to a
 # scratch directory assembled by scripts/prepare_incremental_build.py: areas that haven't
-# changed since the last deploy are seeded from the live production site (already-acquired,
-# so geo-builder's --rebuild skips them); only changed areas come from public/ raw. See
-# tasks/incremental_publish.md for the full design. Unset (ci.yaml, any plain local run):
-# behaves exactly as before this feature existed — no script, no network, --in = public/.
+# changed since the last deploy are seeded from croicu/geo-places-baseline (already-acquired,
+# so geo-builder's --rebuild skips them — see tasks/baseline-artifact-spec.md for that repo);
+# only changed areas come from public/ raw. Cloudflare Pages is never read during the build,
+# only written to at the end — see tasks/incremental_publish.md for the full design. Unset
+# (ci.yaml, any plain local run): behaves exactly as before this feature existed — no script,
+# no network, --in = public/.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -110,13 +112,13 @@ if [ "${GEO_PLACES_INCREMENTAL:-}" = "1" ]; then
     --scratch-dir "$SCRATCH_DIR"
     --state-out "$STATE_OUT"
     --rebuild-out "$REBUILD_OUT"
-    --production-url "${GEO_PLACES_PRODUCTION_URL:-https://geo-places.croicu.com}"
+    --baseline-url "${GEO_PLACES_BASELINE_URL:-https://raw.githubusercontent.com/croicu/geo-places-baseline/main}"
   )
   if [ -n "${GEO_PLACES_REBUILD_AREAS:-}" ]; then
     PREPARE_ARGS+=(--areas "$GEO_PLACES_REBUILD_AREAS")
   fi
 
-  echo "Assembling incremental --in from ${GEO_PLACES_PRODUCTION_URL:-https://geo-places.croicu.com}"
+  echo "Assembling incremental --in from ${GEO_PLACES_BASELINE_URL:-https://raw.githubusercontent.com/croicu/geo-places-baseline/main}"
   "$PYTHON" "$REPO_ROOT/scripts/prepare_incremental_build.py" "${PREPARE_ARGS[@]}"
 
   BUILD_IN="$SCRATCH_DIR"
