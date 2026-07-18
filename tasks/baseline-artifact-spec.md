@@ -21,9 +21,13 @@ This is an intentional exception to the "no generated files committed to git" pr
 
 1. `geo-places-baseline` repo exists. ✅
 2. `main` branch seeded with a full mirror of the live production `out/` tree. ✅ (done manually via an HTTP crawl of `geo-places.croicu.com`, since local `out/` was dirty relative to the last real deploy and wrangler has no command to pull deployed files back down.)
-3. `BASELINE_REPO_PAT` secret is set in `geo-places` with write access to `geo-places-baseline`. ⬜ **still pending** — needs to be created manually (fine-grained PAT, `Contents: Read and write`, scoped only to `geo-places-baseline`) and added as a repo secret on `geo-places` before the new `cd.yaml` step will work.
+3. `BASELINE_REPO_PAT` secret is set in `geo-places` with write access to `geo-places-baseline`. ✅ (fine-grained PAT, `Contents: Read and write`, scoped only to `geo-places-baseline`.)
 
 CI does **not** handle the case where the repo or branch is missing — it assumes both are already present.
+
+## Status
+
+**Resolved and verified live.** `v0.1.9` (2026-07-18) exercised the full loop end-to-end: `cd.yaml` deployed a Redmond bbox change, the "Mirror out/ to geo-places-baseline" step ran successfully, and the resulting commit in `geo-places-baseline` was confirmed to contain the exact deployed bbox value.
 
 ## Workflow behavior
 
