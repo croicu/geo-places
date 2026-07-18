@@ -34,3 +34,18 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy out --project-name=geo-places --branch=main --commit-dirty=true
+
+      - name: Mirror out/ to geo-places-baseline
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.BASELINE_REPO_PAT }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          rm -rf /tmp/geo-places-baseline
+          git clone --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/croicu/geo-places-baseline.git" /tmp/geo-places-baseline
+          rsync -a --delete --exclude=.git out/ /tmp/geo-places-baseline/
+          cd /tmp/geo-places-baseline
+          git add -A
+          git diff --cached --quiet || git commit -m "chore: mirror out/ from geo-places@${GITHUB_SHA}"
+          git push origin main
