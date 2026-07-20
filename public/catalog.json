@@ -73,6 +73,34 @@
       "manifestUrl": "./areas/seattle/manifest.json"
     },
     {
+      "id": "barcelona",
+      "name": "Barcelona",
+      "bbox": [
+        2.0524977,
+        41.3170353,
+        2.2283555,
+        41.4679135
+      ],
+      "minRadiusPx": 32,
+      "maxRadiusPx": 512,
+      "liveMapRadiusPx": 640,
+      "manifestUrl": "./areas/barcelona/manifest.json"
+    },
+    {
+      "id": "madrid",
+      "name": "Madrid",
+      "bbox": [
+        -3.88895389999999,
+        40.3119774,
+        -3.511503469888879,
+        40.50181385742594
+      ],
+      "minRadiusPx": 32,
+      "maxRadiusPx": 512,
+      "liveMapRadiusPx": 640,
+      "manifestUrl": "./areas/madrid/manifest.json"
+    },
+    {
       "id": "redmond",
       "name": "Redmond",
       "bbox": [
