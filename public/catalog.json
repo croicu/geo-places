@@ -130,6 +130,48 @@
       "group": [
         "debug"
       ]
+    },
+    {
+      "id": "bilbao",
+      "name": "Bilbao",
+      "bbox": [
+        -3.0442428588867188,
+        43.22882141920823,
+        -2.8681182861328125,
+        43.36561974741949
+      ],
+      "minRadiusPx": 32,
+      "maxRadiusPx": 512,
+      "liveMapRadiusPx": 640,
+      "manifestUrl": "./areas/bilbao/manifest.json"
+    },
+    {
+      "id": "san_sebasti_n",
+      "name": "San Sebasti\u00e1n",
+      "bbox": [
+        -2.0177078247070312,
+        43.29704291858237,
+        -1.8839836120605469,
+        43.33252360690368
+      ],
+      "minRadiusPx": 32,
+      "maxRadiusPx": 512,
+      "liveMapRadiusPx": 640,
+      "manifestUrl": "./areas/san_sebasti_n/manifest.json"
+    },
+    {
+      "id": "salamanca",
+      "name": "Salamanca",
+      "bbox": [
+        -5.690360069274902,
+        40.952710502015364,
+        -5.63075065612793,
+        40.983655865429434
+      ],
+      "minRadiusPx": 32,
+      "maxRadiusPx": 512,
+      "liveMapRadiusPx": 640,
+      "manifestUrl": "./areas/salamanca/manifest.json"
     }
   ]
 }
