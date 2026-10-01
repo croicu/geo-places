@@ -172,6 +172,20 @@
       "maxRadiusPx": 512,
       "liveMapRadiusPx": 640,
       "manifestUrl": "./areas/salamanca/manifest.json"
+    },
+    {
+      "id": "segovia",
+      "name": "Segovia",
+      "bbox": [
+        -4.133262634277344,
+        40.92246294942589,
+        -4.088244438171387,
+        40.956793895951094
+      ],
+      "minRadiusPx": 32,
+      "maxRadiusPx": 512,
+      "liveMapRadiusPx": 640,
+      "manifestUrl": "./areas/segovia/manifest.json"
     }
   ]
 }
